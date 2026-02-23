@@ -21,10 +21,8 @@ services:
           name: sistema-gerencial-mundo-led-db
           property: connectionString
       - key: DJANGO_ALLOWED_HOSTS
-        sync: false
         value: sistema-gerencial-mundo-led.onrender.com
       - key: CSRF_TRUSTED_ORIGINS
-        sync: false
         value: https://sistema-gerencial-mundo-led.onrender.com
 
 databases:
