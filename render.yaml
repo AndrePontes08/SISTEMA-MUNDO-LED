@@ -29,4 +29,4 @@ databases:
   - name: sistema-gerencial-mundo-led-db
     databaseName: sistema_gerencial_mundo_led
     user: sistema_gerencial_mundo_led_user
-    plan: starter
+    plan: basic-256mb
