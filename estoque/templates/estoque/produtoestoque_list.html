@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Configuracao de Estoque{% endblock %}
+{% block page_title %}Produtos / Configuracao de Estoque{% endblock %}
+{% block content %}
+<style>
+  .card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 10px rgba(0,0,0,.06); }
+  table { width:100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; }
+  .muted { color:#6b7280; font-size:13px; }
+  .chip { padding:6px 10px; background:#f3f4f6; border-radius:999px; text-decoration:none; color:#111827; }
+  .pager { margin-top: 12px; display:flex; gap:8px; align-items:center; }
+</style>
+<div class="card">
+  <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <input name="q" value="{{ request.GET.q }}" placeholder="Buscar produto..." style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; min-width:240px;">
+    <button type="submit" style="padding:10px 12px; border-radius:10px; border:1px solid #111827;">Buscar</button>
+  </form>
+  <table>
+    <thead><tr><th>Produto</th><th>Saldo</th><th>Min</th><th>Ideal</th><th>Max</th><th></th></tr></thead>
+    <tbody>
+    {% for cfg in configs %}
+      <tr>
+        <td>{{ cfg.produto.nome }}</td><td>{{ cfg.saldo_atual }}</td><td>{{ cfg.estoque_minimo }}</td><td>{{ cfg.estoque_ideal }}</td><td>{{ cfg.estoque_maximo }}</td>
+        <td><a class="chip" href="{% url 'estoque:produtoestoque_update' cfg.id %}">Editar</a></td>
+      </tr>
+    {% empty %}<tr><td colspan="6" class="muted">Nenhum registro.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% if is_paginated %}
+    <div class="pager">
+      {% if page_obj.has_previous %}<a class="chip" href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}">Anterior</a>{% endif %}
+      <span class="muted">Pagina {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}<a class="chip" href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}">Proxima</a>{% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

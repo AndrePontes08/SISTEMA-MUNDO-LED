@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Novo Movimento{% endblock %}
+{% block page_title %}Movimentos de Estoque{% endblock %}
+
+{% block content %}
+<style>
+  .card { background:#fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 10px rgba(0,0,0,0.06); }
+  label { display:block; margin-top: 10px; font-size: 14px; color:#374151; }
+  input, select, textarea { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; margin-top:6px; box-sizing:border-box; }
+  table { width:100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { padding: 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  .btn { display:inline-block; padding:8px 12px; border-radius:10px; background:#111827; color:#fff; text-decoration:none; border:none; cursor:pointer; }
+  .btn-secondary { background:#374151; }
+  .btn-danger { background:#b91c1c; }
+  .err { color:#b91c1c; margin-top: 6px; }
+  .grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="card">
+  {% if form.errors or formset.non_form_errors %}
+    <div class="err">Corrija os erros no formulario.</div>
+  {% endif %}
+
+  <form method="post" id="movimento-form">
+    {% csrf_token %}
+
+    <div class="grid">
+      <div>
+        <label>Tipo</label>
+        {{ form.tipo }}
+        {{ form.tipo.errors }}
+      </div>
+      <div>
+        <label>Data</label>
+        {{ form.data_movimento }}
+        {{ form.data_movimento.errors }}
+      </div>
+      <div>
+        <label>Observacao</label>
+        {{ form.observacao }}
+        {{ form.observacao.errors }}
+      </div>
+    </div>
+
+    <h3 style="margin-top:18px;">Produtos</h3>
+    {{ formset.management_form }}
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:65%;">Produto</th>
+          <th style="width:20%;">Quantidade</th>
+          <th style="width:15%;">Acao</th>
+        </tr>
+      </thead>
+      <tbody id="itens-body">
+      {% for item_form in formset %}
+        <tr class="item-row">
+          <td>{{ item_form.produto }}{{ item_form.produto.errors }}</td>
+          <td>{{ item_form.quantidade }}{{ item_form.quantidade.errors }}</td>
+          <td>
+            {{ item_form.DELETE.as_hidden }}
+            <button type="button" class="btn btn-danger remove-row">Remover</button>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <div style="margin-top: 12px;">
+      <button type="button" class="btn btn-secondary" id="add-row">+ Adicionar produto</button>
+    </div>
+
+    <template id="empty-form-template">
+      <tr class="item-row">
+        <td>{{ formset.empty_form.produto }}</td>
+        <td>{{ formset.empty_form.quantidade }}</td>
+        <td>
+          {{ formset.empty_form.DELETE.as_hidden }}
+          <button type="button" class="btn btn-danger remove-row">Remover</button>
+        </td>
+      </tr>
+    </template>
+
+    <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn" type="submit">Salvar</button>
+      <a class="btn btn-secondary" href="{% url 'estoque:dashboard' %}">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  const tbody = document.getElementById('itens-body');
+  const addButton = document.getElementById('add-row');
+  const totalInput = document.getElementById('id_itens-TOTAL_FORMS');
+  const template = document.getElementById('empty-form-template');
+
+  function bindRemoveButtons(scope) {
+    const buttons = scope.querySelectorAll('.remove-row');
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', function () {
+        const row = this.closest('tr');
+        const delInput = row.querySelector('input[name$="-DELETE"]');
+        if (delInput) {
+          delInput.checked = true;
+          row.style.display = 'none';
+          return;
+        }
+        row.remove();
+      });
+    });
+  }
+
+  addButton.addEventListener('click', function () {
+    const index = Number(totalInput.value);
+    const html = template.innerHTML.replaceAll('__prefix__', String(index));
+    const wrapper = document.createElement('tbody');
+    wrapper.innerHTML = html.trim();
+    const row = wrapper.firstElementChild;
+    tbody.appendChild(row);
+    totalInput.value = String(index + 1);
+    bindRemoveButtons(row);
+  });
+
+  bindRemoveButtons(document);
+})();
+</script>
+{% endblock %}

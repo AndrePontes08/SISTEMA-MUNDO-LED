@@ -1,0 +1,23 @@
+from django.urls import path
+
+from contas.views import (
+    ContasDashboardView,
+    ContaListView,
+    ContaDetailView,
+    ContaCreateView,
+    ContaUpdateView,
+    ConfirmarPagamentoView,
+    ImportCSVView,
+)
+
+app_name = "contas"
+
+urlpatterns = [
+    path("", ContasDashboardView.as_view(), name="dashboard"),
+    path("lista/", ContaListView.as_view(), name="conta_list"),
+    path("nova/", ContaCreateView.as_view(), name="conta_create"),
+    path("<int:pk>/", ContaDetailView.as_view(), name="conta_detail"),
+    path("<int:pk>/editar/", ContaUpdateView.as_view(), name="conta_update"),
+    path("<int:pk>/confirmar-pagamento/", ConfirmarPagamentoView.as_view(), name="confirmar_pagamento"),
+    path("importar/", ImportCSVView.as_view(), name="import_csv"),
+]

@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Venda{% endblock %}
+{% block page_title %}Venda / Orcamento{% endblock %}
+
+{% block content %}
+<div class="card">
+  <form method="post" id="venda-form">
+    {% csrf_token %}
+    <h2>Dados principais</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+      <div>
+        <label for="{{ form.tipo_documento.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.tipo_documento.label }}</label>
+        {{ form.tipo_documento }}
+      </div>
+      <div>
+        <label for="{{ form.cliente.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.cliente.label }}</label>
+        {{ form.cliente }}
+      </div>
+      <div>
+        <label for="{{ form.vendedor.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.vendedor.label }}</label>
+        {{ form.vendedor }}
+      </div>
+      <div>
+        <label for="{{ form.data_venda.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.data_venda.label }}</label>
+        {{ form.data_venda }}
+      </div>
+      <div>
+        <label for="{{ form.tipo_pagamento.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.tipo_pagamento.label }}</label>
+        {{ form.tipo_pagamento }}
+      </div>
+      <div id="field-numero-parcelas">
+        <label for="{{ form.numero_parcelas.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.numero_parcelas.label }}</label>
+        {{ form.numero_parcelas }}
+      </div>
+      <div id="field-intervalo-parcelas">
+        <label for="{{ form.intervalo_parcelas_dias.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.intervalo_parcelas_dias.label }}</label>
+        {{ form.intervalo_parcelas_dias }}
+      </div>
+      <div id="field-primeiro-vencimento">
+        <label for="{{ form.primeiro_vencimento.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.primeiro_vencimento.label }}</label>
+        {{ form.primeiro_vencimento }}
+      </div>
+      <div id="field-acrescimo">
+        <label for="{{ form.acrescimo.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.acrescimo.label }}</label>
+        {{ form.acrescimo }}
+      </div>
+      <div style="grid-column:1 / -1;">
+        <label for="{{ form.observacoes.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.observacoes.label }}</label>
+        {{ form.observacoes }}
+      </div>
+    </div>
+    {% if form.non_field_errors %}
+      <div class="msg error" style="margin-top:10px;">{{ form.non_field_errors|striptags }}</div>
+    {% endif %}
+
+    <h3 style="margin-top:18px;">Itens da venda / orcamento</h3>
+    <p class="muted">Adicione quantos produtos forem necessarios.</p>
+    {{ itens_formset.management_form }}
+    <table style="width:100%;border-collapse:collapse;" id="itens-table">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Produto</th>
+          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Quantidade</th>
+          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Preco unitario</th>
+          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Desconto</th>
+          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Acao</th>
+        </tr>
+      </thead>
+      <tbody id="itens-body">
+        {% for item_form in itens_formset %}
+          <tr class="item-row">
+            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item_form.produto }}</td>
+            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item_form.quantidade }}</td>
+            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item_form.preco_unitario }}</td>
+            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item_form.desconto }}</td>
+            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+              <button type="button" class="btn js-remove-row">Remover</button>
+              <span style="display:none;">{{ item_form.DELETE }}</span>
+              {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <template id="empty-item-template">
+      <tr class="item-row">
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ empty_item_form.produto }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ empty_item_form.quantidade }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ empty_item_form.preco_unitario }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ empty_item_form.desconto }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+          <button type="button" class="btn js-remove-row">Remover</button>
+          <span style="display:none;">{{ empty_item_form.DELETE }}</span>
+          {% for hidden in empty_item_form.hidden_fields %}{{ hidden }}{% endfor %}
+        </td>
+      </tr>
+    </template>
+
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" type="button" id="add-item-btn">Adicionar produto</button>
+      <button class="btn" type="submit">Salvar</button>
+      <a class="btn" href="{% url 'vendas:venda_list' %}">Voltar</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  (function () {
+    const body = document.getElementById("itens-body");
+    const addBtn = document.getElementById("add-item-btn");
+    const totalForms = document.getElementById("id_itens-TOTAL_FORMS");
+    const template = document.getElementById("empty-item-template");
+
+    function bindRemove(btn) {
+      btn.addEventListener("click", function () {
+        const row = btn.closest(".item-row");
+        if (!row) return;
+        const deleteInput = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+        if (deleteInput) {
+          deleteInput.checked = true;
+        }
+        row.style.display = "none";
+      });
+    }
+
+    body.querySelectorAll(".js-remove-row").forEach(bindRemove);
+
+    addBtn.addEventListener("click", function () {
+      const idx = parseInt(totalForms.value, 10);
+      const html = template.innerHTML.replaceAll("__prefix__", String(idx));
+      const wrapper = document.createElement("tbody");
+      wrapper.innerHTML = html.trim();
+      const row = wrapper.querySelector(".item-row");
+      body.appendChild(row);
+      bindRemove(row.querySelector(".js-remove-row"));
+      totalForms.value = String(idx + 1);
+    });
+
+    const tipoPagamento = document.getElementById("id_tipo_pagamento");
+    const boletoFields = [
+      document.getElementById("field-numero-parcelas"),
+      document.getElementById("field-intervalo-parcelas"),
+      document.getElementById("field-primeiro-vencimento"),
+      document.getElementById("field-acrescimo")
+    ];
+
+    function toggleBoletoFields() {
+      const isBoleto = tipoPagamento && tipoPagamento.value === "PARCELADO_BOLETO";
+      boletoFields.forEach(function (el) {
+        if (!el) return;
+        el.style.display = isBoleto ? "block" : "none";
+      });
+    }
+
+    if (tipoPagamento) {
+      tipoPagamento.addEventListener("change", toggleBoletoFields);
+      toggleBoletoFields();
+    }
+  })();
+</script>
+{% endblock %}

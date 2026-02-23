@@ -1,0 +1,172 @@
+erp_django/
+├─ manage.py
+├─ requirements.txt
+├─ .env.example
+├─ README.md
+├─ config/
+│  ├─ __init__.py
+│  ├─ asgi.py
+│  ├─ wsgi.py
+│  ├─ urls.py
+│  ├─ settings/
+│  │  ├─ __init__.py
+│  │  ├─ base.py
+│  │  ├─ dev.py
+│  │  ├─ prod.py
+│  └─ db.py
+├─ core/
+│  ├─ __init__.py
+│  ├─ apps.py
+│  ├─ admin.py
+│  ├─ models.py
+│  ├─ urls.py
+│  ├─ views.py
+│  ├─ tests.py
+│  ├─ services/
+│  │  ├─ __init__.py
+│  │  ├─ normalizacao.py
+│  │  ├─ resolvers.py
+│  │  ├─ paginacao.py
+│  │  ├─ permissoes.py
+│  │  └─ formato_brl.py
+│  ├─ templates/
+│  │  ├─ base.html
+│  │  ├─ components/
+│  │  │  ├─ pagination.html
+│  │  │  └─ messages.html
+│  │  └─ registration/
+│  │     ├─ login.html
+│  │     └─ logged_out.html
+│  └─ management/
+│     └─ commands/
+│        ├─ __init__.py
+│        └─ seed_groups.py
+├─ compras/
+│  ├─ __init__.py
+│  ├─ apps.py
+│  ├─ admin.py
+│  ├─ models.py
+│  ├─ forms.py
+│  ├─ urls.py
+│  ├─ views.py
+│  ├─ tests.py
+│  ├─ services/
+│  │  ├─ __init__.py
+│  │  ├─ compras_service.py
+│  │  ├─ garantias_service.py
+│  │  └─ importacao_service.py
+│  ├─ templates/
+│  │  └─ compras/
+│  │     ├─ compra_list.html
+│  │     ├─ compra_detail.html
+│  │     ├─ compra_form.html
+│  │     ├─ itemcompra_formset.html
+│  │     └─ dashboard.html
+│  └─ management/
+│     └─ commands/
+│        ├─ __init__.py
+│        ├─ import_compras_csv.py
+│        └─ sanitize_fornecedores.py
+├─ estoque/
+│  ├─ __init__.py
+│  ├─ apps.py
+│  ├─ admin.py
+│  ├─ models.py
+│  ├─ forms.py
+│  ├─ urls.py
+│  ├─ views.py
+│  ├─ tests.py
+│  ├─ services/
+│  │  ├─ __init__.py
+│  │  ├─ estoque_service.py
+│  │  ├─ alertas_service.py
+│  │  └─ integracao_compras.py
+│  ├─ templates/
+│  │  └─ estoque/
+│  │     ├─ produtoestoque_list.html
+│  │     ├─ movimento_form.html
+│  │     └─ dashboard.html
+│  └─ management/
+│     └─ commands/
+│        ├─ __init__.py
+│        └─ recalcular_saldos.py
+├─ contas/
+│  ├─ __init__.py
+│  ├─ apps.py
+│  ├─ admin.py
+│  ├─ models.py
+│  ├─ forms.py
+│  ├─ urls.py
+│  ├─ views.py
+│  ├─ tests.py
+│  ├─ services/
+│  │  ├─ __init__.py
+│  │  ├─ contas_service.py
+│  │  ├─ impostos_service.py
+│  │  ├─ projecao_service.py
+│  │  └─ importacao_service.py
+│  ├─ templates/
+│  │  └─ contas/
+│  │     ├─ conta_list.html
+│  │     ├─ conta_detail.html
+│  │     ├─ conta_form.html
+│  │     ├─ projecao_dashboard.html
+│  │     └─ impostos_widget.html
+│  └─ management/
+│     └─ commands/
+│        ├─ __init__.py
+│        ├─ import_contas_csv.py
+│        └─ gerar_projecao_mensal.py
+├─ boletos/
+│  ├─ __init__.py
+│  ├─ apps.py
+│  ├─ admin.py
+│  ├─ models.py
+│  ├─ forms.py
+│  ├─ urls.py
+│  ├─ views.py
+│  ├─ tests.py
+│  ├─ services/
+│  │  ├─ __init__.py
+│  │  ├─ boletos_service.py
+│  │  ├─ cobranca_service.py
+│  │  ├─ blacklist_service.py
+│  │  └─ importacao_service.py
+│  ├─ templates/
+│  │  └─ boletos/
+│  │     ├─ boleto_list.html
+│  │     ├─ boleto_detail.html
+│  │     ├─ boleto_form.html
+│  │     ├─ pagamento_form.html
+│  │     └─ dashboard.html
+│  └─ management/
+│     └─ commands/
+│        ├─ __init__.py
+│        ├─ import_boletos_csv.py
+│        └─ sanitize_clientes.py
+├─ relatorios/
+│  ├─ __init__.py
+│  ├─ apps.py
+│  ├─ admin.py
+│  ├─ models.py
+│  ├─ forms.py
+│  ├─ urls.py
+│  ├─ views.py
+│  ├─ tests.py
+│  ├─ services/
+│  │  ├─ __init__.py
+│  │  ├─ queries_financeiro.py
+│  │  ├─ queries_estoque.py
+│  │  ├─ queries_boletos.py
+│  │  └─ serializers.py
+│  ├─ templates/
+│  │  └─ relatorios/
+│  │     ├─ dashboard.html
+│  │     ├─ financeiro.html
+│  │     ├─ estoque.html
+│  │     └─ boletos.html
+│  └─ static/
+│     └─ relatorios/
+│        └─ chart_helpers.js
+└─ media/
+   └─ (uploads em dev)

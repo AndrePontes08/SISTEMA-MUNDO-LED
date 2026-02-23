@@ -1,0 +1,8 @@
+Django>=6.0,<7.0
+python-decouple>=3.8
+dj-database-url>=2.2.0
+gunicorn>=23.0.0
+whitenoise>=6.7.0
+psycopg[binary]>=3.1.18
+pypdf>=4.2.0
+reportlab>=4.4.10

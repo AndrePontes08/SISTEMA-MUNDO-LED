@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Editar{% else %}Nova{% endif %} Compra{% endblock %}
+{% block page_title %}{% if object %}Editar{% else %}Nova{% endif %} Compra{% endblock %}
+
+{% block content %}
+<style>
+  .card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 10px rgba(0,0,0,.06); }
+  label { display:block; margin-top:10px; font-size:14px; color:#374151; }
+  input, select, textarea { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; margin-top:6px; }
+  .btn { display:inline-block; padding:8px 12px; border-radius:10px; background:#111827; color:#fff; text-decoration:none; border:none; cursor:pointer; }
+  .btn-secondary { background:#374151; }
+  table { width:100%; border-collapse: collapse; margin-top:12px; }
+  th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; vertical-align:top; }
+  .muted { color:#6b7280; font-size:13px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .row > * { flex:1; min-width:240px; }
+  .mini { flex:0 0 auto; min-width:auto; }
+</style>
+
+<div class="card">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="row">
+      <div>
+        <label>Fornecedor</label>
+        {{ form.fornecedor }}
+        {{ form.fornecedor.errors }}
+      </div>
+      <div class="mini" style="margin-top:28px;">
+        <a class="btn btn-secondary" href="{% url 'compras:fornecedor_quick_create' %}?next={{ request.get_full_path|urlencode }}">+ Cadastrar fornecedor</a>
+      </div>
+    </div>
+
+    <div class="row">
+      <div><label>Centro de custo</label>{{ form.centro_custo }}{{ form.centro_custo.errors }}</div>
+      <div><label>Data</label>{{ form.data_compra }}{{ form.data_compra.errors }}</div>
+    </div>
+
+    <label>Nota fiscal (arquivo)</label>{{ form.nota_fiscal }}
+    <label>Boleto (arquivo)</label>{{ form.boleto }}
+    <label>Pedido/Orcamento (arquivo)</label>{{ form.pedido }}
+
+    <h3 style="margin-top:14px;">Tres orcamentos obrigatorios</h3>
+    <div class="muted">Anexe os 3 orcamentos para permitir aprovacao pelo diretor/admin.</div>
+    <label>Orcamento 1</label>{{ form.orcamento_1 }}{{ form.orcamento_1.errors }}
+    <label>Orcamento 2</label>{{ form.orcamento_2 }}{{ form.orcamento_2.errors }}
+    <label>Orcamento 3</label>{{ form.orcamento_3 }}{{ form.orcamento_3.errors }}
+    <label>Orcamento escolhido para compra</label>{{ form.orcamento_escolhido }}{{ form.orcamento_escolhido.errors }}
+    <label>Justificativa da escolha</label>{{ form.justificativa_escolha }}{{ form.justificativa_escolha.errors }}
+
+    <label>Comprovante de pagamento (arquivo)</label>{{ form.comprovante_pagamento }}
+    <label>Observacoes (obrigatorio)</label>{{ form.observacoes }}{{ form.observacoes.errors }}
+
+    <h3>Itens</h3>
+    <div class="muted">Se nao houver produtos cadastrados, use o botao abaixo.</div>
+    <div style="margin:8px 0;">
+      <a class="btn btn-secondary" href="{% url 'compras:produto_quick_create' %}?next={{ request.get_full_path|urlencode }}">+ Cadastrar produto</a>
+    </div>
+
+    {{ itens_formset.management_form }}
+    <table>
+      <thead><tr><th>Produto</th><th>Quantidade</th><th>Preco unitario</th><th>Remover</th></tr></thead>
+      <tbody>
+      {% for f in itens_formset.forms %}
+        <tr>
+          <td>{{ f.id }}{{ f.produto }}{{ f.produto.errors }}</td>
+          <td>{{ f.quantidade }}{{ f.quantidade.errors }}</td>
+          <td>{{ f.preco_unitario }}{{ f.preco_unitario.errors }}</td>
+          <td>{% if f.DELETE %}{{ f.DELETE }} <span class="muted">Excluir</span>{% else %}<span class="muted">-</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn" type="submit">Salvar</button>
+      <a class="btn btn-secondary" href="{% url 'compras:compra_list' %}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

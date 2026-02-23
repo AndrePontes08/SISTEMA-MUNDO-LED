@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Importar OFX{% endblock %}
+{% block page_title %}Importar OFX{% endblock %}
+{% block content %}
+<style>
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06);margin-bottom:12px}
+  .drop{border:2px dashed #94a3b8;border-radius:12px;padding:24px;text-align:center;background:#f8fafc}
+  .btn{display:inline-block;padding:9px 13px;border-radius:10px;background:#0f172a;color:#fff;text-decoration:none;border:none;cursor:pointer}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left}
+  .muted{color:#6b7280}
+</style>
+
+<div class="card">
+  <h2>1) Enviar arquivo OFX</h2>
+  <p style="margin-bottom:10px">
+    <a class="btn" href="{% url 'financeiro:conta_bancaria_create' %}?next={{ request.path }}">Cadastrar Conta Bancaria</a>
+  </p>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="preview">
+    <div class="drop" id="drop-zone">
+      <p><strong>Arraste o OFX aqui</strong> ou clique para selecionar.</p>
+      {{ form.arquivo }}
+    </div>
+    <p style="margin-top:10px">{{ form.conta_bancaria.label_tag }} {{ form.conta_bancaria }}</p>
+    <p class="muted">Se a conta nao for detectada automaticamente, selecione manualmente.</p>
+    <button class="btn" type="submit">Gerar Previa</button>
+  </form>
+</div>
+
+{% if importacao_preview %}
+<div class="card">
+  <h2>2) Previa da importacao #{{ importacao_preview.id }}</h2>
+  <p>
+    Conta detectada:
+    {% if importacao_preview.conta %}<strong>{{ importacao_preview.conta }}</strong>{% else %}<strong>nao detectada</strong>{% endif %}
+  </p>
+  <p>Periodo: {{ importacao_preview.periodo_inicio|default:"-" }} ate {{ importacao_preview.periodo_fim|default:"-" }}</p>
+  <p>Transacoes detectadas: {{ importacao_preview.transacoes_detectadas }}</p>
+  {% if importacao_preview.alertas %}
+    <ul>
+      {% for alerta in importacao_preview.alertas %}
+        <li>{{ alerta }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Valor</th>
+        <th>Descricao</th>
+        <th>FITID</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in preview_rows %}
+      <tr>
+        <td>{{ row.posted_at }}</td>
+        <td>{{ row.amount }}</td>
+        <td>{{ row.description }}</td>
+        <td>{{ row.fitid|default:"-" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="muted">Sem transacoes para previsualizar.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post" style="margin-top:14px">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="confirmar">
+    <input type="hidden" name="importacao_id" value="{{ importacao_preview.id }}">
+    <p>
+      <label for="id_confirm_conta">Conta para confirmar:</label>
+      <select name="conta_bancaria" id="id_confirm_conta">
+        <option value="">Usar conta detectada</option>
+        {% for conta in form.fields.conta_bancaria.queryset %}
+          <option value="{{ conta.id }}" {% if importacao_preview.conta_id == conta.id %}selected{% endif %}>{{ conta }}</option>
+        {% endfor %}
+      </select>
+    </p>
+    <button class="btn" type="submit">Confirmar Importacao</button>
+  </form>
+</div>
+{% endif %}
+
+<script>
+  (function () {
+    const zone = document.getElementById("drop-zone");
+    const input = zone.querySelector("input[type='file']");
+    input.style.display = "none";
+    zone.addEventListener("click", () => input.click());
+    zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.style.borderColor = "#2563eb"; });
+    zone.addEventListener("dragleave", () => { zone.style.borderColor = "#94a3b8"; });
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      zone.style.borderColor = "#94a3b8";
+      if (e.dataTransfer.files.length) {
+        input.files = e.dataTransfer.files;
+      }
+    });
+  })();
+</script>
+{% endblock %}

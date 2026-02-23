@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Aprovacao de Compras{% endblock %}
+{% block page_title %}Aprovacao de Compras{% endblock %}
+
+{% block content %}
+<style>
+  .orc-status {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 3px 8px;
+    margin-bottom: 6px;
+  }
+  .orc-status-ok { background: #dcfce7; color: #166534; }
+  .orc-status-mid { background: #fef3c7; color: #92400e; }
+  .orc-status-low { background: #fee2e2; color: #991b1b; }
+</style>
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+    <h2>Compras pendentes de aprovacao</h2>
+    <a class="btn" href="{% url 'compras:compra_list' %}">Voltar para compras</a>
+  </div>
+
+  <form method="get" style="display:flex;gap:8px;margin:12px 0;align-items:center;">
+    <input type="text" name="q" placeholder="Buscar fornecedor" value="{{ request.GET.q }}" style="max-width:320px;">
+    <button class="btn" type="submit">Filtrar</button>
+  </form>
+
+  <table style="width:100%;border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:left;">ID</th>
+        <th style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:left;">Data</th>
+        <th style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:left;">Fornecedor</th>
+        <th style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:left;">Itens</th>
+        <th style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:left;">Orcamentos</th>
+        <th style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:left;">Escolha</th>
+        <th style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:left;">Acao</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for compra in compras %}
+      <tr>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">#{{ compra.id }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ compra.data_compra|date:"d/m/Y" }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ compra.fornecedor.nome }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ compra.itens.count }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+          {% if compra.orcamento_1 and compra.orcamento_2 and compra.orcamento_3 %}
+            <div class="orc-status orc-status-ok">Anexos: 3/3</div>
+          {% elif compra.orcamento_1 and compra.orcamento_2 or compra.orcamento_1 and compra.orcamento_3 or compra.orcamento_2 and compra.orcamento_3 %}
+            <div class="orc-status orc-status-mid">Anexos: 2/3</div>
+          {% elif compra.orcamento_1 or compra.orcamento_2 or compra.orcamento_3 %}
+            <div class="orc-status orc-status-low">Anexos: 1/3</div>
+          {% else %}
+            <div class="orc-status orc-status-low">Anexos: 0/3</div>
+          {% endif %}
+          {% if compra.orcamento_1 %}<a href="{% url 'compras:compra_download_file' compra.id 'orc1' %}">Orc 1</a>{% else %}<span class="muted">Orc 1 ausente</span>{% endif %}<br>
+          {% if compra.orcamento_2 %}<a href="{% url 'compras:compra_download_file' compra.id 'orc2' %}">Orc 2</a>{% else %}<span class="muted">Orc 2 ausente</span>{% endif %}<br>
+          {% if compra.orcamento_3 %}<a href="{% url 'compras:compra_download_file' compra.id 'orc3' %}">Orc 3</a>{% else %}<span class="muted">Orc 3 ausente</span>{% endif %}
+        </td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+          <div><strong>{{ compra.get_orcamento_escolhido_display|default:"-" }}</strong></div>
+          <div class="muted">{{ compra.justificativa_escolha|default:"Sem justificativa" }}</div>
+        </td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <a class="btn" href="{% url 'compras:compra_detail' compra.id %}">Analisar compra</a>
+            <form method="post" action="{% url 'compras:compra_aprovar' compra.id %}">
+              {% csrf_token %}
+              <button class="btn" type="submit">Aprovar</button>
+            </form>
+          </div>
+          <div class="muted" style="margin-top:6px;">
+            No detalhe voce pode baixar os anexos dos orcamentos.
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" style="padding:10px;">Sem compras pendentes de aprovacao.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

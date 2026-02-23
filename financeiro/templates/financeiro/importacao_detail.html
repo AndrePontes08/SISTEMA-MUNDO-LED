@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Importacao #{{ importacao.id }}{% endblock %}
+{% block page_title %}Detalhe da Importacao #{{ importacao.id }}{% endblock %}
+{% block content %}
+<style>
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06);margin-bottom:12px}
+  .btn{display:inline-block;padding:8px 12px;border-radius:10px;background:#0f172a;color:#fff;text-decoration:none}
+  pre{white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;padding:10px;border-radius:8px}
+</style>
+
+<div class="card">
+  <p><strong>Status:</strong> {{ importacao.status }}</p>
+  <p><strong>Conta:</strong> {{ importacao.conta|default:"-" }}</p>
+  <p><strong>Banco:</strong> {{ importacao.banco_nome|default:importacao.banco_codigo|default:"-" }}</p>
+  <p><strong>Arquivo:</strong> {{ importacao.arquivo_nome }}</p>
+  <p><strong>Periodo:</strong> {{ importacao.periodo_inicio|default:"-" }} ate {{ importacao.periodo_fim|default:"-" }}</p>
+  <p><strong>Detectadas:</strong> {{ importacao.transacoes_detectadas }} | <strong>Novas:</strong> {{ importacao.transacoes_importadas }} | <strong>Duplicadas:</strong> {{ importacao.transacoes_duplicadas }}</p>
+  <a class="btn" href="{% url 'financeiro:historico_importacoes' %}">Voltar ao historico</a>
+</div>
+
+{% if importacao.alertas %}
+<div class="card">
+  <h3>Alertas</h3>
+  <ul>
+    {% for alerta in importacao.alertas %}
+      <li>{{ alerta }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>Log de erro</h3>
+  <pre>{{ importacao.log_erro|default:"Sem erros registrados." }}</pre>
+</div>
+{% endblock %}
+

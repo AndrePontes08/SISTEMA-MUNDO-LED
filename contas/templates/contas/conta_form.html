@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nova{% endif %} Conta{% endblock %}
+{% block page_title %}{% if object %}Editar{% else %}Nova{% endif %} Conta{% endblock %}
+{% block content %}
+<style>
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06);max-width:920px}
+  label{display:block;margin-top:10px;font-size:14px;color:#374151}
+  input,select,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d1d5db;margin-top:6px}
+  .btn{display:inline-block;padding:8px 12px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;border:none;cursor:pointer}
+  .btn-secondary{background:#374151}
+</style>
+<div class="card">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <label>Vencimento</label>{{ form.vencimento }}
+    <label>Descricao</label>{{ form.descricao }}
+    <label>Centro de custo</label>{{ form.centro_custo }}
+    <label>Categoria</label>{{ form.categoria }}
+    <label>Valor</label>{{ form.valor }}
+    <label>Boleto (arquivo)</label>{{ form.boleto }}
+    <label>Nota fiscal (arquivo)</label>{{ form.nota_fiscal }}
+    <label>Comprovante</label>{{ form.comprovante }}
+    <label>Pedido/Orcamento (arquivo)</label>{{ form.pedido }}
+    <label>Exige comprovante para marcar como paga?</label>{{ form.exige_comprovante }}
+    <label>Observacoes</label>{{ form.observacoes }}
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn" type="submit">Salvar</button>
+      <a class="btn btn-secondary" href="{% url 'contas:conta_list' %}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

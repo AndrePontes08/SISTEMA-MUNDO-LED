@@ -1,0 +1,169 @@
+from __future__ import annotations
+
+from decimal import Decimal
+from django.core.validators import MinValueValidator
+from django.db import models
+from django.utils import timezone
+
+from compras.models import Fornecedor
+from core.services.normalizacao import normalizar_nome
+
+
+class CentroCustoChoices(models.TextChoices):
+    FM = "FM", "FM"
+    ML = "ML", "ML"
+    PESSOAL = "PESSOAL", "PESSOAL"
+    FM_ML = "FM/ML", "FM/ML"
+    OUTROS = "OUTROS", "OUTROS"
+
+
+class StatusConta(models.TextChoices):
+    ABERTA = "ABERTA", "Aberta"
+    PAGA = "PAGA", "Paga"
+
+
+def comprovante_upload_path(instance: "ContaAPagar", filename: str) -> str:
+    return f"contas/comprovantes/{instance.vencimento:%Y/%m}/{instance.id or 'novo'}_{filename}"
+
+
+class Categoria(models.Model):
+    nome = models.CharField(max_length=255)
+    nome_normalizado = models.CharField(max_length=255, db_index=True, unique=True)
+
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["nome_normalizado"], name="idx_cat_nome_norm")]
+        ordering = ["nome"]
+
+    def save(self, *args, **kwargs):
+        self.nome = (self.nome or "").strip()
+        self.nome_normalizado = normalizar_nome(self.nome)
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return self.nome
+
+
+class CategoriaAlias(models.Model):
+    principal = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name="aliases")
+    nome = models.CharField(max_length=255)
+    nome_normalizado = models.CharField(max_length=255, db_index=True, unique=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["nome_normalizado"], name="idx_catalias_nome_norm"),
+            models.Index(fields=["principal"], name="idx_catalias_principal"),
+        ]
+        ordering = ["nome"]
+
+    def save(self, *args, **kwargs):
+        self.nome = (self.nome or "").strip()
+        self.nome_normalizado = normalizar_nome(self.nome)
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.nome} -> {self.principal.nome}"
+
+
+class CentroCusto(models.Model):
+    """
+    Mantém referência editável (opcional), além do choices no campo.
+    """
+    codigo = models.CharField(max_length=20, choices=CentroCustoChoices.choices, unique=True)
+    nome = models.CharField(max_length=100, default="")
+
+    class Meta:
+        ordering = ["codigo"]
+
+    def __str__(self) -> str:
+        return self.codigo
+
+
+class RegraImposto(models.Model):
+    """
+    Calculadora simples: percentual aplicável sobre soma do mês.
+    Ex: 6% => 0.06
+    """
+    nome = models.CharField(max_length=100, default="Regra padrão")
+    percentual = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        validators=[MinValueValidator(Decimal("0.0000"))],
+        default=Decimal("0.0000"),
+    )
+    ativo = models.BooleanField(default=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-ativo", "nome"]
+
+    def __str__(self) -> str:
+        return f"{self.nome} ({self.percentual})"
+
+
+class ProjecaoMensal(models.Model):
+    """
+    Itens recorrentes fixos do mês (projeção).
+    """
+    descricao = models.CharField(max_length=255)
+    centro_custo = models.CharField(max_length=20, choices=CentroCustoChoices.choices, db_index=True)
+    categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, related_name="projecoes")
+    fornecedor = models.ForeignKey(Fornecedor, on_delete=models.SET_NULL, blank=True, null=True)
+
+    valor_previsto = models.DecimalField(
+        max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.00"))]
+    )
+    ativo = models.BooleanField(default=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["centro_custo"], name="idx_proj_cc"),
+            models.Index(fields=["ativo"], name="idx_proj_ativo"),
+        ]
+        ordering = ["-ativo", "descricao"]
+
+    def __str__(self) -> str:
+        return self.descricao
+
+
+class ContaAPagar(models.Model):
+    vencimento = models.DateField(db_index=True)
+    descricao = models.CharField(max_length=255, db_index=True)
+
+    centro_custo = models.CharField(max_length=20, choices=CentroCustoChoices.choices, db_index=True)
+
+    categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, related_name="contas")
+    fornecedor = models.ForeignKey(Fornecedor, on_delete=models.SET_NULL, blank=True, null=True, related_name="contas")
+
+    valor = models.DecimalField(
+        max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.00"))], db_index=True
+    )
+
+    status = models.CharField(max_length=10, choices=StatusConta.choices, default=StatusConta.ABERTA, db_index=True)
+    pago_em = models.DateTimeField(blank=True, null=True)
+
+    comprovante = models.FileField(upload_to=comprovante_upload_path, blank=True, null=True)
+
+    # Regra crítica
+    exige_comprovante = models.BooleanField(default=True, db_index=True)
+
+    importado = models.BooleanField(default=False, db_index=True)
+    fonte_importacao = models.CharField(max_length=120, blank=True, default="")
+    linha_importacao = models.IntegerField(blank=True, null=True)
+
+    observacoes = models.TextField(blank=True, default="")
+
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status", "vencimento"], name="idx_conta_status_data"),
+            models.Index(fields=["centro_custo", "vencimento"], name="idx_conta_cc_data"),
+            models.Index(fields=["categoria", "vencimento"], name="idx_conta_cat_data"),
+        ]
+        ordering = ["-vencimento", "-id"]
+
+    def __str__(self) -> str:
+        return f"{self.descricao} - {self.vencimento:%d/%m/%Y}"

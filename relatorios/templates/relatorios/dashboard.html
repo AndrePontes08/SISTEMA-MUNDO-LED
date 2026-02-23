@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Relatorios{% endblock %}
+{% block page_title %}Relatorios Gerenciais{% endblock %}
+
+{% block content %}
+<style>
+  .kpis { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:12px; }
+  .kpi { background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 10px rgba(0,0,0,.06); }
+  .kpi .label { color:#6b7280; font-size:12px; text-transform:uppercase; }
+  .kpi .value { font-size:22px; font-weight:700; margin-top:4px; }
+  .charts { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  .card { background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 10px rgba(0,0,0,.06); }
+  .card h3 { margin:0 0 10px 0; font-size:15px; }
+  @media (max-width: 1200px) { .kpis { grid-template-columns: 1fr 1fr; } .charts { grid-template-columns: 1fr; } }
+</style>
+
+<div class="kpis">
+  <div class="kpi"><div class="label">Total compras</div><div class="value">R$ {{ kpi_total_compras|floatformat:2 }}</div></div>
+  <div class="kpi"><div class="label">Contas abertas</div><div class="value">R$ {{ kpi_contas_abertas|floatformat:2 }}</div></div>
+  <div class="kpi"><div class="label">Boletos abertos</div><div class="value">{{ kpi_boletos_abertos }}</div></div>
+  <div class="kpi"><div class="label">Transferencias 30d</div><div class="value">{{ kpi_transferencias_30d }}</div></div>
+</div>
+
+<div class="charts">
+  <div class="card"><h3>Compras por mes (valor)</h3><canvas id="comprasValor"></canvas></div>
+  <div class="card"><h3>Compras por mes (quantidade)</h3><canvas id="comprasQtd"></canvas></div>
+  <div class="card"><h3>Contas por status (valor)</h3><canvas id="contasStatus"></canvas></div>
+  <div class="card"><h3>Boletos por status (qtd)</h3><canvas id="boletosStatus"></canvas></div>
+  <div class="card"><h3>Movimentos de estoque (quantidade)</h3><canvas id="movimentosTipo"></canvas></div>
+  <div class="card"><h3>Transferencias por destino (quantidade)</h3><canvas id="transferDestino"></canvas></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const labelsCompras = {{ labels_compras_json|safe }};
+  const valoresCompras = {{ valores_compras_json|safe }};
+  const qtdCompras = {{ qtd_compras_json|safe }};
+  const labelsContas = {{ labels_contas_json|safe }};
+  const valoresContas = {{ valores_contas_json|safe }};
+  const labelsBoletos = {{ labels_boletos_json|safe }};
+  const valoresBoletos = {{ valores_boletos_json|safe }};
+  const labelsMov = {{ labels_mov_json|safe }};
+  const valoresMov = {{ valores_mov_json|safe }};
+  const labelsTransfer = {{ labels_transfer_json|safe }};
+  const valoresTransfer = {{ valores_transfer_json|safe }};
+
+  new Chart(document.getElementById('comprasValor'), {
+    type: 'line',
+    data: { labels: labelsCompras, datasets: [{ label: 'R$', data: valoresCompras, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.2)', tension: .3 }] },
+  });
+  new Chart(document.getElementById('comprasQtd'), {
+    type: 'bar',
+    data: { labels: labelsCompras, datasets: [{ label: 'Compras', data: qtdCompras, backgroundColor: '#0891b2' }] },
+  });
+  new Chart(document.getElementById('contasStatus'), {
+    type: 'doughnut',
+    data: { labels: labelsContas, datasets: [{ data: valoresContas, backgroundColor: ['#dc2626', '#16a34a', '#6b7280'] }] },
+  });
+  new Chart(document.getElementById('boletosStatus'), {
+    type: 'bar',
+    data: { labels: labelsBoletos, datasets: [{ data: valoresBoletos, backgroundColor: '#f59e0b' }] },
+  });
+  new Chart(document.getElementById('movimentosTipo'), {
+    type: 'bar',
+    data: { labels: labelsMov, datasets: [{ data: valoresMov, backgroundColor: ['#16a34a', '#dc2626', '#6b7280'] }] },
+  });
+  new Chart(document.getElementById('transferDestino'), {
+    type: 'pie',
+    data: { labels: labelsTransfer, datasets: [{ data: valoresTransfer, backgroundColor: ['#2563eb', '#14b8a6'] }] },
+  });
+</script>
+{% endblock %}

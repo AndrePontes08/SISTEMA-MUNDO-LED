@@ -1,0 +1,639 @@
+from __future__ import annotations
+
+import io
+from datetime import timedelta
+
+from django.conf import settings
+from django.contrib import messages
+from django.db.models import Prefetch
+from django.http import FileResponse, HttpResponse
+from django.shortcuts import redirect
+from django.urls import reverse
+from django.utils import timezone
+from django.views import View
+from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
+
+from core.services.paginacao import get_pagination_params
+from core.services.permissoes import GroupRequiredMixin
+from vendas.forms import CancelarVendaForm, ItemVendaFormSet, VendaForm
+from vendas.models import ItemVenda, StatusVendaChoices, TipoDocumentoVendaChoices, Venda
+from vendas.services.statistics_service import VendasStatisticsService
+from vendas.services.vendas_service import (
+    cancelar_venda,
+    confirmar_venda,
+    converter_orcamento_em_venda,
+    faturar_venda,
+    finalizar_venda,
+    recalcular_totais,
+    registrar_evento,
+)
+
+
+class VendasAccessMixin(GroupRequiredMixin):
+    required_groups = ("admin/gestor", "vendedor")
+
+    def _is_manager(self) -> bool:
+        user = self.request.user
+        return bool(user.is_superuser or user.groups.filter(name="admin/gestor").exists())
+
+
+def _escape_pdf_text(value: str) -> str:
+    return (value or "").replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def _build_simple_pdf(lines: list[str]) -> bytes:
+    commands = ["BT", "/F1 11 Tf", "50 805 Td"]
+    for idx, line in enumerate(lines):
+        if idx > 0:
+            commands.append("0 -16 Td")
+        commands.append(f"({_escape_pdf_text(line)}) Tj")
+    commands.append("ET")
+    stream = "\n".join(commands).encode("latin-1", errors="ignore")
+
+    objects = []
+    objects.append(b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n")
+    objects.append(b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n")
+    objects.append(b"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj\n")
+    objects.append(b"4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n")
+    objects.append(
+        f"5 0 obj << /Length {len(stream)} >> stream\n".encode("latin-1")
+        + stream
+        + b"\nendstream endobj\n"
+    )
+
+    header = b"%PDF-1.4\n"
+    body = b""
+    offsets = [0]
+    for obj in objects:
+        offsets.append(len(header) + len(body))
+        body += obj
+
+    xref_start = len(header) + len(body)
+    xref = [f"xref\n0 {len(objects)+1}\n".encode("latin-1"), b"0000000000 65535 f \n"]
+    for off in offsets[1:]:
+        xref.append(f"{off:010d} 00000 n \n".encode("latin-1"))
+    trailer = f"trailer << /Size {len(objects)+1} /Root 1 0 R >>\nstartxref\n{xref_start}\n%%EOF".encode("latin-1")
+    return header + body + b"".join(xref) + trailer
+
+
+def _pdf_business_lines(venda: Venda) -> list[str]:
+    validade = (venda.data_venda + timedelta(days=7)).strftime("%d/%m/%Y")
+    lines = [
+        "AUTO TECH",
+        f"{venda.get_tipo_documento_display()} {venda.codigo_identificacao}",
+        f"Cliente: {venda.cliente.nome}",
+        f"Data emissao: {venda.data_venda:%d/%m/%Y}",
+        f"Validade da proposta: {validade}",
+        f"Vendedor responsavel: {venda.vendedor or '-'}",
+        f"Pagamento: {venda.get_tipo_pagamento_display()} | Status: {venda.get_status_display()}",
+        "",
+        "ITENS",
+    ]
+    for item in venda.itens.all():
+        lines.append(
+            f"- {item.produto.nome} | qtd {item.quantidade} | unit R$ {item.preco_unitario:.2f} | desc R$ {item.desconto:.2f} | subtotal R$ {item.subtotal:.2f}"
+        )
+    lines.extend(
+        [
+            "",
+            f"Subtotal: R$ {venda.subtotal:.2f}",
+            f"Acrescimo: R$ {venda.acrescimo:.2f}",
+            f"Total: R$ {venda.total_final:.2f}",
+            "",
+            "CONDICOES COMERCIAIS",
+            "1) Valores sujeitos a confirmacao de estoque no faturamento.",
+            "2) Prazo de entrega a confirmar com o vendedor.",
+            "3) Garantia conforme politica interna e fabricante.",
+            "",
+            "OBSERVACOES",
+            (venda.observacoes or "-"),
+            "",
+            "Assinatura cliente: __________________________",
+            "Assinatura vendedor: _________________________",
+            "",
+            "AUTO TECH - Documento gerado pelo ERP",
+        ]
+    )
+    return lines
+
+
+def _split_text_plain(text: str, limit: int = 95) -> list[str]:
+    raw = (text or "").strip()
+    if not raw:
+        return ["-"]
+    words = raw.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        tentative = word if not current else f"{current} {word}"
+        if len(tentative) <= limit:
+            current = tentative
+            continue
+        if current:
+            lines.append(current)
+        current = word
+    if current:
+        lines.append(current)
+    return lines
+
+
+class VendaListView(VendasAccessMixin, ListView):
+    model = Venda
+    template_name = "vendas/venda_list.html"
+    context_object_name = "vendas"
+
+    def get_paginate_by(self, queryset):
+        return get_pagination_params(self.request).page_size
+
+    def get_queryset(self):
+        qs = (
+            Venda.objects.select_related("cliente", "vendedor")
+            .prefetch_related("itens")
+            .order_by("-data_venda", "-id")
+        )
+        status = (self.request.GET.get("status") or "").strip()
+        tipo_documento = (self.request.GET.get("tipo_documento") or "").strip()
+        cliente = (self.request.GET.get("cliente") or "").strip()
+        data_inicio = (self.request.GET.get("data_inicio") or "").strip()
+        data_fim = (self.request.GET.get("data_fim") or "").strip()
+
+        if status:
+            qs = qs.filter(status=status)
+        if tipo_documento:
+            qs = qs.filter(tipo_documento=tipo_documento)
+        if cliente:
+            qs = qs.filter(cliente__nome__icontains=cliente)
+        if data_inicio:
+            qs = qs.filter(data_venda__gte=data_inicio)
+        if data_fim:
+            qs = qs.filter(data_venda__lte=data_fim)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        periodo = self.request.GET.get("periodo", "30")
+        periodo_dias = int(periodo) if periodo.isdigit() else 30
+        ctx["status_choices"] = StatusVendaChoices.choices
+        ctx["tipo_documento_choices"] = TipoDocumentoVendaChoices.choices
+        ctx["dashboard"] = VendasStatisticsService.resumo(periodo_dias=periodo_dias)
+        return ctx
+
+
+class VendaDetailView(VendasAccessMixin, DetailView):
+    model = Venda
+    template_name = "vendas/venda_detail.html"
+    context_object_name = "venda"
+
+    def get_queryset(self):
+        return (
+            Venda.objects.select_related("cliente", "vendedor")
+            .prefetch_related(
+                Prefetch("itens", queryset=ItemVenda.objects.select_related("produto")),
+                "eventos__usuario",
+                "movimentos_estoque__movimento",
+                "recebiveis__recebivel",
+                "boletos__boleto",
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["cancelar_form"] = CancelarVendaForm()
+        return ctx
+
+
+class VendaCreateView(VendasAccessMixin, CreateView):
+    model = Venda
+    form_class = VendaForm
+    template_name = "vendas/venda_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        if self.request.POST:
+            ctx["itens_formset"] = ItemVendaFormSet(self.request.POST, instance=self.object)
+        else:
+            ctx["itens_formset"] = ItemVendaFormSet(instance=self.object)
+        ctx["empty_item_form"] = ItemVendaFormSet(instance=self.object).empty_form
+        return ctx
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial["data_venda"] = timezone.localdate()
+        return initial
+
+    def form_valid(self, form):
+        ctx = self.get_context_data()
+        formset = ctx["itens_formset"]
+        if not formset.is_valid():
+            return self.form_invalid(form)
+        itens_validos = [f for f in formset.forms if f.cleaned_data and not f.cleaned_data.get("DELETE") and f.cleaned_data.get("produto")]
+        if not itens_validos:
+            messages.error(self.request, "Adicione ao menos um produto para salvar.")
+            return self.form_invalid(form)
+
+        self.object = form.save(commit=False)
+        if not self._is_manager():
+            self.object.vendedor = self.request.user
+        if not self.object.data_venda:
+            self.object.data_venda = timezone.localdate()
+        self.object.save()
+        formset.instance = self.object
+        formset.save()
+        recalcular_totais(self.object)
+        registrar_evento(self.object, "CRIACAO", self.request.user, "Venda criada pela interface")
+        messages.success(self.request, "Venda criada com sucesso.")
+        return redirect(self.get_success_url())
+
+    def get_success_url(self):
+        return reverse("vendas:venda_detail", kwargs={"pk": self.object.pk})
+
+
+class VendaUpdateView(VendasAccessMixin, UpdateView):
+    model = Venda
+    form_class = VendaForm
+    template_name = "vendas/venda_form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        if self.request.POST:
+            ctx["itens_formset"] = ItemVendaFormSet(self.request.POST, instance=self.object)
+        else:
+            ctx["itens_formset"] = ItemVendaFormSet(instance=self.object)
+        ctx["empty_item_form"] = ItemVendaFormSet(instance=self.object).empty_form
+        return ctx
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        if self.object.status in (StatusVendaChoices.FATURADA, StatusVendaChoices.FINALIZADA, StatusVendaChoices.CANCELADA):
+            messages.error(self.request, "Nao e permitido editar venda nesse status.")
+            return redirect(reverse("vendas:venda_detail", kwargs={"pk": self.object.pk}))
+
+        ctx = self.get_context_data()
+        formset = ctx["itens_formset"]
+        if not formset.is_valid():
+            return self.form_invalid(form)
+        itens_validos = [f for f in formset.forms if f.cleaned_data and not f.cleaned_data.get("DELETE") and f.cleaned_data.get("produto")]
+        if not itens_validos:
+            messages.error(self.request, "Adicione ao menos um produto para salvar.")
+            return self.form_invalid(form)
+
+        before = self.get_object()
+        change_log = self._build_change_log(before, form, formset)
+
+        self.object = form.save(commit=False)
+        if not self._is_manager():
+            self.object.vendedor = before.vendedor
+        self.object.save()
+        formset.save()
+        recalcular_totais(self.object)
+        if change_log:
+            registrar_evento(
+                self.object,
+                "OUTRO",
+                self.request.user,
+                "Alteracoes registradas: " + "; ".join(change_log),
+            )
+        messages.success(self.request, "Venda atualizada com sucesso.")
+        return redirect(self.get_success_url())
+
+    def get_success_url(self):
+        return reverse("vendas:venda_detail", kwargs={"pk": self.object.pk})
+
+    def _build_change_log(self, before: Venda, form: VendaForm, formset: ItemVendaFormSet) -> list[str]:
+        logs: list[str] = []
+        labels = {
+            "tipo_documento": "Tipo",
+            "cliente": "Cliente",
+            "vendedor": "Vendedor",
+            "data_venda": "Data da venda",
+            "tipo_pagamento": "Pagamento",
+            "numero_parcelas": "Parcelas",
+            "intervalo_parcelas_dias": "Intervalo parcelas",
+            "primeiro_vencimento": "Primeiro vencimento",
+            "acrescimo": "Acrescimo",
+            "observacoes": "Observacoes",
+        }
+
+        for field_name, label in labels.items():
+            old_value = getattr(before, field_name)
+            new_value = form.cleaned_data.get(field_name)
+            old_repr = str(old_value) if old_value is not None else "-"
+            new_repr = str(new_value) if new_value is not None else "-"
+            if field_name in ("cliente", "vendedor"):
+                old_repr = str(old_value) if old_value else "-"
+                new_repr = str(new_value) if new_value else "-"
+            if old_repr != new_repr:
+                logs.append(f"{label}: {old_repr} -> {new_repr}")
+
+        for item_form in formset.forms:
+            cleaned = getattr(item_form, "cleaned_data", None) or {}
+            if not cleaned:
+                continue
+            instance = item_form.instance
+            if cleaned.get("DELETE"):
+                if instance and instance.pk:
+                    logs.append(
+                        f"Item removido: {instance.produto.nome} qtd {instance.quantidade}"
+                    )
+                continue
+            produto = cleaned.get("produto")
+            quantidade = cleaned.get("quantidade")
+            if not instance.pk and produto:
+                logs.append(f"Item adicionado: {produto.nome} qtd {quantidade}")
+                continue
+            if instance.pk and item_form.has_changed():
+                item_changes = ", ".join(item_form.changed_data)
+                logs.append(f"Item {instance.id} alterado: {item_changes}")
+
+        return logs
+
+
+class VendaConfirmarView(VendasAccessMixin, View):
+    def post(self, request, *args, **kwargs):
+        venda = Venda.objects.get(pk=kwargs["pk"])
+        confirmar_venda(venda, request.user)
+        messages.success(request, "Venda confirmada.")
+        return redirect("vendas:venda_detail", pk=venda.pk)
+
+
+class VendaFaturarView(VendasAccessMixin, View):
+    def post(self, request, *args, **kwargs):
+        venda = Venda.objects.get(pk=kwargs["pk"])
+        try:
+            result = faturar_venda(venda, request.user)
+        except Exception as exc:
+            messages.error(request, f"Falha ao faturar: {exc}")
+            return redirect("vendas:venda_detail", pk=venda.pk)
+
+        if result.already_processed:
+            messages.info(request, "Venda ja estava faturada/finalizada; nenhum efeito novo foi aplicado.")
+        else:
+            messages.success(
+                request,
+                (
+                    "Venda faturada. "
+                    f"Estoque: {result.movimentos_criados} | "
+                    f"Recebiveis: {result.recebiveis_criados} | "
+                    f"Boletos: {result.boletos_criados}"
+                ),
+            )
+        return redirect("vendas:venda_detail", pk=venda.pk)
+
+
+class OrcamentoConverterView(VendasAccessMixin, View):
+    def post(self, request, *args, **kwargs):
+        venda = Venda.objects.get(pk=kwargs["pk"])
+        try:
+            converter_orcamento_em_venda(venda, request.user)
+            messages.success(request, "Orcamento convertido em venda.")
+        except Exception as exc:
+            messages.error(request, f"Falha ao converter orcamento: {exc}")
+        return redirect("vendas:venda_detail", pk=venda.pk)
+
+
+class VendaPDFView(VendasAccessMixin, View):
+    def get(self, request, *args, **kwargs):
+        venda = (
+            Venda.objects.select_related("cliente", "vendedor")
+            .prefetch_related("itens__produto")
+            .get(pk=kwargs["pk"])
+        )
+        filename = f"{venda.codigo_identificacao}.pdf"
+        try:
+            # PDF premium com identidade visual quando reportlab estiver disponivel.
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.units import mm
+            from reportlab.lib import colors
+            from reportlab.pdfgen import canvas
+
+            def wrap_text(pdf, text: str, max_width: float, font_name: str = "Helvetica", font_size: int = 9) -> list[str]:
+                text = (text or "").strip()
+                if not text:
+                    return ["-"]
+                pdf.setFont(font_name, font_size)
+                words = text.split()
+                lines_local: list[str] = []
+                current = ""
+                for word in words:
+                    candidate = word if not current else f"{current} {word}"
+                    if pdf.stringWidth(candidate, font_name, font_size) <= max_width:
+                        current = candidate
+                    else:
+                        if current:
+                            lines_local.append(current)
+                        current = word
+                if current:
+                    lines_local.append(current)
+                return lines_local or ["-"]
+
+            buffer = io.BytesIO()
+            pdf = canvas.Canvas(buffer, pagesize=A4)
+            width, height = A4
+
+            logo_path = str(settings.BASE_DIR / "core" / "static" / "core" / "img" / "logo.jpg")
+            # Header com fundo colorido
+            header_h = 30 * mm
+            pdf.setFillColor(colors.HexColor("#0f172a"))
+            pdf.rect(0, height - header_h, width, header_h, fill=1, stroke=0)
+            pdf.setFillColor(colors.white)
+            try:
+                pdf.drawImage(logo_path, 12 * mm, height - 24 * mm, width=14 * mm, height=14 * mm, preserveAspectRatio=True, mask="auto")
+            except Exception:
+                pass
+            pdf.setFont("Helvetica-Bold", 17)
+            pdf.drawString(30 * mm, height - 14 * mm, "AUTO TECH")
+            pdf.setFont("Helvetica", 10)
+            pdf.drawString(30 * mm, height - 20 * mm, "Documento comercial")
+
+            y = height - header_h - 8 * mm
+            validade = (venda.data_venda + timedelta(days=7)).strftime("%d/%m/%Y")
+            pdf.setFont("Helvetica-Bold", 11)
+            pdf.drawString(15 * mm, y, f"{venda.get_tipo_documento_display()} {venda.codigo_identificacao}")
+            y -= 7 * mm
+            pdf.setFont("Helvetica", 10)
+            pdf.drawString(15 * mm, y, f"Cliente: {venda.cliente.nome}")
+            y -= 5 * mm
+            pdf.drawString(15 * mm, y, f"Data emissao: {venda.data_venda:%d/%m/%Y} | Validade: {validade}")
+            y -= 5 * mm
+            pdf.drawString(15 * mm, y, f"Vendedor: {venda.vendedor or '-'}")
+            y -= 5 * mm
+            pdf.drawString(15 * mm, y, f"Pagamento: {venda.get_tipo_pagamento_display()} | Status: {venda.get_status_display()}")
+            y -= 10 * mm
+
+            # Header da tabela de itens
+            x0 = 15 * mm
+            x_prod = x0
+            x_qtd = 118 * mm
+            x_unit = 136 * mm
+            x_desc = 156 * mm
+            x_sub = 178 * mm
+            x_end = 195 * mm
+            row_h = 6 * mm
+
+            pdf.setFillColor(colors.HexColor("#e2e8f0"))
+            pdf.rect(x0, y - row_h + 1.5, x_end - x0, row_h, fill=1, stroke=0)
+            pdf.setFillColor(colors.black)
+            pdf.setFont("Helvetica-Bold", 9)
+            pdf.drawString(x_prod + 1.5, y - 2.5, "Produto")
+            pdf.drawString(x_qtd + 1, y - 2.5, "Qtd")
+            pdf.drawString(x_unit + 1, y - 2.5, "Unit.")
+            pdf.drawString(x_desc + 1, y - 2.5, "Desc.")
+            pdf.drawString(x_sub + 1, y - 2.5, "Subtotal")
+            y -= row_h + 2
+
+            pdf.setFont("Helvetica", 9)
+            for item in venda.itens.all():
+                if y < 35 * mm:
+                    pdf.showPage()
+                    y = height - 20 * mm
+                    pdf.setFillColor(colors.HexColor("#e2e8f0"))
+                    pdf.rect(x0, y - row_h + 1.5, x_end - x0, row_h, fill=1, stroke=0)
+                    pdf.setFillColor(colors.black)
+                    pdf.setFont("Helvetica-Bold", 9)
+                    pdf.drawString(x_prod + 1.5, y - 2.5, "Produto")
+                    pdf.drawString(x_qtd + 1, y - 2.5, "Qtd")
+                    pdf.drawString(x_unit + 1, y - 2.5, "Unit.")
+                    pdf.drawString(x_desc + 1, y - 2.5, "Desc.")
+                    pdf.drawString(x_sub + 1, y - 2.5, "Subtotal")
+                    y -= row_h + 2
+                    pdf.setFont("Helvetica", 9)
+
+                produto_lines = wrap_text(pdf, item.produto.nome, max_width=(x_qtd - x_prod - 4), font_size=9)
+                item_lines = max(1, len(produto_lines))
+                current_row_h = max(row_h, item_lines * 4 * mm)
+
+                pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
+                pdf.rect(x0, y - current_row_h + 1.2, x_end - x0, current_row_h, fill=0, stroke=1)
+                pdf.line(x_qtd, y + 1.2, x_qtd, y - current_row_h + 1.2)
+                pdf.line(x_unit, y + 1.2, x_unit, y - current_row_h + 1.2)
+                pdf.line(x_desc, y + 1.2, x_desc, y - current_row_h + 1.2)
+                pdf.line(x_sub, y + 1.2, x_sub, y - current_row_h + 1.2)
+
+                text_y = y - 2.8
+                for idx, pline in enumerate(produto_lines):
+                    pdf.drawString(x_prod + 1.5, text_y - (idx * 3.8 * mm), pline)
+                pdf.drawRightString(x_unit - 1.2, text_y, str(item.quantidade))
+                pdf.drawRightString(x_desc - 1.2, text_y, f"{item.preco_unitario:.2f}")
+                pdf.drawRightString(x_sub - 1.2, text_y, f"{item.desconto:.2f}")
+                pdf.drawRightString(x_end - 1.5, text_y, f"{item.subtotal:.2f}")
+                y -= current_row_h + 1.5
+
+            y -= 6 * mm
+            pdf.setFont("Helvetica-Bold", 11)
+            pdf.drawString(15 * mm, y, f"Subtotal: R$ {venda.subtotal:.2f}")
+            y -= 5 * mm
+            pdf.drawString(15 * mm, y, f"Acrescimo: R$ {venda.acrescimo:.2f}")
+            y -= 5 * mm
+            pdf.drawString(15 * mm, y, f"Total: R$ {venda.total_final:.2f}")
+            y -= 8 * mm
+
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawString(15 * mm, y, "Condicoes comerciais")
+            y -= 5 * mm
+            pdf.setFont("Helvetica", 9)
+            pdf.drawString(15 * mm, y, "1) Valores sujeitos a confirmacao de estoque no faturamento.")
+            y -= 4 * mm
+            pdf.drawString(15 * mm, y, "2) Prazo de entrega a confirmar com o vendedor.")
+            y -= 4 * mm
+            pdf.drawString(15 * mm, y, "3) Garantia conforme politica interna e fabricante.")
+            y -= 7 * mm
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawString(15 * mm, y, "Observacoes")
+            y -= 5 * mm
+            pdf.setFont("Helvetica", 9)
+            obs_lines = wrap_text(pdf, venda.observacoes or "-", max_width=170 * mm, font_size=9)
+            for obs_line in obs_lines[:8]:
+                if y < 35 * mm:
+                    pdf.showPage()
+                    y = height - 25 * mm
+                    pdf.setFont("Helvetica", 9)
+                pdf.drawString(15 * mm, y, obs_line)
+                y -= 4 * mm
+            y -= 4 * mm
+
+            pdf.setFont("Helvetica", 9)
+            pdf.line(15 * mm, y, 90 * mm, y)
+            pdf.line(110 * mm, y, 185 * mm, y)
+            y -= 4 * mm
+            pdf.drawString(15 * mm, y, "Assinatura cliente")
+            pdf.drawString(110 * mm, y, "Assinatura vendedor")
+            y -= 8 * mm
+            pdf.drawString(15 * mm, y, "AUTO TECH - Documento gerado pelo ERP")
+            pdf.showPage()
+            pdf.save()
+            buffer.seek(0)
+            return FileResponse(buffer, as_attachment=True, filename=filename, content_type="application/pdf")
+        except Exception:
+            lines = _pdf_business_lines(venda)
+            if venda.observacoes:
+                obs_expanded: list[str] = []
+                for line in lines:
+                    if line == (venda.observacoes or "-"):
+                        obs_expanded.extend(_split_text_plain(venda.observacoes, limit=95))
+                    else:
+                        obs_expanded.append(line)
+                lines = obs_expanded
+            return HttpResponse(
+                _build_simple_pdf(lines),
+                content_type="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+
+class VendaFinalizarView(VendasAccessMixin, View):
+    def post(self, request, *args, **kwargs):
+        venda = Venda.objects.get(pk=kwargs["pk"])
+        try:
+            finalizar_venda(venda, request.user)
+            messages.success(request, "Venda finalizada.")
+        except Exception as exc:
+            messages.error(request, f"Falha ao finalizar: {exc}")
+        return redirect("vendas:venda_detail", pk=venda.pk)
+
+
+class VendaCancelarView(VendasAccessMixin, View):
+    def post(self, request, *args, **kwargs):
+        venda = Venda.objects.get(pk=kwargs["pk"])
+        form = CancelarVendaForm(request.POST)
+        motivo = ""
+        if form.is_valid():
+            motivo = form.cleaned_data.get("motivo") or ""
+        try:
+            result = cancelar_venda(venda, request.user, motivo=motivo)
+        except Exception as exc:
+            messages.error(request, f"Falha ao cancelar: {exc}")
+            return redirect("vendas:venda_detail", pk=venda.pk)
+
+        if result.already_canceled:
+            messages.info(request, "Venda ja estava cancelada.")
+        else:
+            messages.warning(
+                request,
+                (
+                    "Venda cancelada. "
+                    f"Reversoes estoque: {result.reversoes_estoque} | "
+                    f"Recebiveis cancelados: {result.recebiveis_cancelados} | "
+                    f"Boletos cancelados: {result.boletos_cancelados}"
+                ),
+            )
+        return redirect("vendas:venda_detail", pk=venda.pk)
+
+
+class VendasDashboardView(VendasAccessMixin, TemplateView):
+    template_name = "vendas/dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        periodo = self.request.GET.get("periodo", "30")
+        periodo_dias = int(periodo) if periodo.isdigit() else 30
+        ctx["dashboard"] = VendasStatisticsService.resumo(periodo_dias=periodo_dias)
+        return ctx

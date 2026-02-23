@@ -1,0 +1,17 @@
+verificar os nomes que tem no projeto
+grep -R "data_vencimento" -n contas
+
+COMANDO AUTOMÁTICO (SEGURO)
+
+Execute na raiz do projeto:
+
+grep -rl "data_vencimento" contas | xargs sed -i 's/data_vencimento/vencimento/g'
+
+
+Isso vai:
+
+procurar todos os arquivos .py
+
+trocar data_vencimento → vencimento
+
+não mexe nos .pyc

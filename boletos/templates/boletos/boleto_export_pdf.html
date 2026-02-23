@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: DejaVu Sans, Arial, sans-serif; font-size:12px }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 6px; }
+    th { background:#f3f4f6; }
+  </style>
+  <title>Boletos - Necessitam Comprovante</title>
+</head>
+<body>
+  <h2>Boletos que necessitam de comprovante {% if bank %}- {{ bank }}{% endif %}</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Número</th>
+        <th>Nosso Número</th>
+        <th>Cliente</th>
+        <th>CPF/CNPJ</th>
+        <th>Valor</th>
+        <th>Vencimento</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in boletos %}
+      <tr>
+        <td>{{ b.numero_boleto }}</td>
+        <td>{{ b.nosso_numero }}</td>
+        <td>{{ b.cliente.nome }}</td>
+        <td>{{ b.cliente.cpf_cnpj }}</td>
+        <td>R$ {{ b.valor|floatformat:2 }}</td>
+        <td>{{ b.data_vencimento|date:"d/m/Y" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

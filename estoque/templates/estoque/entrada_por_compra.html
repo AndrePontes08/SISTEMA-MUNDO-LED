@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Entrada por Compra{% endblock %}
+{% block page_title %}Entrada por Compra{% endblock %}
+{% block content %}
+<style>
+  .card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 10px rgba(0,0,0,.06); }
+  table { width:100%; border-collapse: collapse; margin-top:10px; }
+  th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; }
+  .btn { display:inline-block; padding:8px 12px; border-radius:10px; background:#111827; color:#fff; text-decoration:none; border:none; cursor:pointer; }
+  .muted { color:#6b7280; font-size:13px; }
+</style>
+<div class="card">
+  <h2>Compra #{{ compra.id }}</h2>
+  <p class="muted">{{ compra.fornecedor.nome }} - {{ compra.data_compra|date:"d/m/Y" }}</p>
+  <table>
+    <thead><tr><th>Produto</th><th>Qtd</th></tr></thead>
+    <tbody>{% for it in compra.itens.all %}<tr><td>{{ it.produto.nome }}</td><td>{{ it.quantidade }}</td></tr>{% endfor %}</tbody>
+  </table>
+  <form method="post" style="margin-top: 14px;">{% csrf_token %}<button class="btn" type="submit">Gerar entradas no estoque</button></form>
+</div>
+{% endblock %}

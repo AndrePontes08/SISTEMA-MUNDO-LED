@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Importar CSV{% endblock %}
+{% block page_title %}Importar Contas (CSV){% endblock %}
+{% block content %}
+<style>
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06);max-width:920px}
+  label{display:block;margin-top:10px;font-size:14px;color:#374151}
+  input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d1d5db;margin-top:6px}
+  .btn{display:inline-block;padding:8px 12px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;border:none;cursor:pointer}
+  .muted{color:#6b7280;font-size:13px}
+</style>
+<div class="card">
+  <h2 style="margin-top:0;">Importacao inicial</h2>
+  <p class="muted">Faca upload do CSV. As contas serao criadas como <strong>ABERTA</strong>. Por padrao, importados ficam com <code>exige_comprovante=False</code>.</p>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <label>Arquivo CSV</label>{{ form.arquivo }}
+    <label style="margin-top:12px;">{{ form.exige_comprovante_padrao }} Exigir comprovante (para registros importados)</label>
+    <div style="margin-top:14px;"><button class="btn" type="submit">Importar</button></div>
+  </form>
+</div>
+{% endblock %}

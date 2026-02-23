@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Confirmar Pagamento{% endblock %}
+{% block page_title %}Confirmar Pagamento{% endblock %}
+{% block content %}
+<style>
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06);max-width:920px}
+  label{display:block;margin-top:10px;font-size:14px;color:#374151}
+  input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d1d5db;margin-top:6px}
+  .btn{display:inline-block;padding:8px 12px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;border:none;cursor:pointer}
+  .muted{color:#6b7280;font-size:13px}
+</style>
+<div class="card">
+  <h3 style="margin-top:0;">{{ conta.descricao }}</h3>
+  <div class="muted">Valor: R$ {{ conta.valor }} - Exige comprovante: {{ conta.exige_comprovante }}</div>
+  <form method="post" enctype="multipart/form-data" style="margin-top:10px;">
+    {% csrf_token %}
+    <label>Comprovante (opcional se ja anexou na conta)</label>
+    {{ form.comprovante }}
+    <div style="margin-top:14px;"><button class="btn" type="submit">Confirmar</button></div>
+  </form>
+  <p class="muted" style="margin-top:10px;">Regra: se a conta exige comprovante e nao houver arquivo, nao confirma.</p>
+</div>
+{% endblock %}

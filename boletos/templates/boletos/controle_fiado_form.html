@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}{{ controle.cliente.nome }} - Controle de Fiado{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>💳 Controle de Fiado</h1>
+            <h3>{{ controle.cliente.nome }}</h3>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'boletos:controle_fiado_list' %}" class="btn btn-secondary">← Voltar</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <form method="post" class="card">
+                {% csrf_token %}
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">{{ form.limite_credito.label }}</label>
+                            {{ form.limite_credito }}
+                            {% if form.limite_credito.errors %}<div class="text-danger">{{ form.limite_credito.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">{{ form.saldo_fiado.label }}</label>
+                            {{ form.saldo_fiado }}
+                            {% if form.saldo_fiado.errors %}<div class="text-danger">{{ form.saldo_fiado.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">{{ form.status.label }}</label>
+                            {{ form.status }}
+                            {% if form.status.errors %}<div class="text-danger">{{ form.status.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="card-footer d-flex justify-content-between">
+                    <a href="{% url 'boletos:controle_fiado_list' %}" class="btn btn-secondary">← Cancelar</a>
+                    <button type="submit" class="btn btn-primary">💾 Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Resumo</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Limite de Crédito:</strong><br>
+                        <span class="fs-5">R$ {{ controle.limite_credito|floatformat:2 }}</span>
+                    </div>
+
+                    <div class="mb-3">
+                        <strong>Saldo Utilizado:</strong><br>
+                        <span class="fs-5 text-danger">R$ {{ controle.saldo_fiado|floatformat:2 }}</span>
+                    </div>
+
+                    <div class="mb-3">
+                        <strong>Disponível:</strong><br>
+                        <span class="fs-5 text-success">R$ {{ controle.saldo_disponivel|floatformat:2 }}</span>
+                    </div>
+
+                    <div class="progress mb-3" style="height: 25px;">
+                        <div class="progress-bar bg-{% if controle.percentual_utilizado|floatformat:0|add:0 > 80 %}danger{% elif controle.percentual_utilizado|floatformat:0|add:0 > 50 %}warning{% else %}success{% endif %} {# pyright: ignore #}" 
+                             style="width: {{ controle.percentual_utilizado|floatformat:1 }}%">
+                            {{ controle.percentual_utilizado|floatformat:1 }}%
+                        </div>
+                    </div>
+
+                    <p class="text-muted mb-0">
+                        <strong>Status:</strong> <span class="badge bg-{% if controle.status == 'BLOQUEADO' %}danger{% elif controle.status == 'ATIVO' %}success{% else %}secondary{% endif %}">{{ controle.get_status_display }}</span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Cliente</h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        <strong>{{ controle.cliente.nome }}</strong><br>
+                        CPF/CNPJ: {{ controle.cliente.cpf_cnpj }}<br>
+                        <a href="{% url 'boletos:cliente_detail' controle.cliente.pk %}" class="btn btn-sm btn-primary mt-2">Ver Cliente</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select {
+        border-radius: 0.375rem;
+        border: 1px solid #dee2e6;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+</style>
+{% endblock %}

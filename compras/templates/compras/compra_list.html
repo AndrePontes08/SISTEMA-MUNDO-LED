@@ -1,0 +1,662 @@
+{% extends "base.html" %}
+{% load static %}
+{% load formatters %}
+
+{% block title %}Compras{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary: #667eea;
+        --success: #56ab2f;
+        --info: #06a3e6;
+        --warning: #ffa500;
+        --danger: #ff6b6b;
+        --light-bg: #f8f9fa;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #212529;
+        margin: 0;
+    }
+
+    /* KPI Cards Compactas */
+    .kpi-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .kpi-card {
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        border-left: 4px solid;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .kpi-card:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .kpi-card.primary { border-left-color: var(--primary); }
+    .kpi-card.success { border-left-color: var(--success); }
+    .kpi-card.info { border-left-color: var(--info); }
+    .kpi-card.warning { border-left-color: var(--warning); }
+
+    .kpi-left {
+        flex: 1;
+    }
+
+    .kpi-label {
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: 500;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .kpi-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: #212529;
+    }
+
+    .kpi-icon {
+        font-size: 28px;
+        margin-left: 12px;
+        opacity: 0.8;
+    }
+
+    /* Tendências e Top Fornecedores */
+    .dashboard-row {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    @media (max-width: 1200px) {
+        .dashboard-row {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .card {
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+
+    .card-header {
+        background: #f8f9fa;
+        padding: 14px 16px;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 600;
+        font-size: 14px;
+        color: #212529;
+    }
+
+    .card-body {
+        padding: 16px;
+    }
+
+    /* Tendências Compactas */
+    .trends-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+
+    .trend-item {
+        background: #f8f9fa;
+        padding: 12px;
+        border-radius: 6px;
+        text-align: center;
+        border: 1px solid #e9ecef;
+    }
+
+    .trend-label {
+        font-size: 11px;
+        color: #6c757d;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+
+    .trend-value {
+        font-size: 16px;
+        font-weight: 700;
+        color: #212529;
+        margin-bottom: 2px;
+    }
+
+    .trend-badge {
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+
+    .trend-badge.positive {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .trend-badge.negative {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .trend-badge.neutral {
+        background: #e2e3e5;
+        color: #383d41;
+    }
+
+    /* Top Fornecedores */
+    .supplier-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px;
+    }
+
+    .supplier-card {
+        background: #f8f9fa;
+        padding: 12px;
+        border-radius: 6px;
+        border-left: 3px solid var(--success);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 100px;
+    }
+
+    .supplier-name {
+        font-weight: 700;
+        font-size: 13px;
+        color: #212529;
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .supplier-count {
+        font-size: 11px;
+        color: #6c757d;
+        margin-bottom: 6px;
+    }
+
+    .supplier-value {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--success);
+    }
+
+    /* Filtros Compactos */
+    .filter-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+        align-items: flex-end;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .form-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .form-control, .form-select {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 13px;
+        height: 36px;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        outline: none;
+    }
+
+    .btn-filter {
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-weight: 600;
+        font-size: 13px;
+        height: 36px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-filter:hover {
+        background: #5568d3;
+        box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Tabela Compacta */
+    .table-container {
+        margin-bottom: 24px;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .table thead {
+        background: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .table th {
+        padding: 12px 14px;
+        text-align: left;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+    }
+
+    .table tbody tr {
+        border-bottom: 1px solid #e9ecef;
+        transition: background 0.2s ease;
+    }
+
+    .table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .table td {
+        padding: 12px 14px;
+        vertical-align: middle;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .badge-primary { background: #e7f3ff; color: var(--primary); }
+    .badge-success { background: #e8f5e9; color: var(--success); }
+    .badge-info { background: #e0f7fa; color: var(--info); }
+    .badge-secondary { background: #e9ecef; color: #495057; }
+
+    .btn-group {
+        display: flex;
+        gap: 6px;
+    }
+
+    .btn-sm {
+        padding: 6px 10px;
+        font-size: 11px;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .btn-view {
+        background: #e7f3ff;
+        color: var(--primary);
+    }
+
+    .btn-view:hover {
+        background: #d1e7ff;
+    }
+
+    .btn-edit {
+        background: #fff3e0;
+        color: var(--warning);
+    }
+
+    .btn-edit:hover {
+        background: #ffe0b2;
+    }
+
+    /* Paginação Compacta */
+    .pagination-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 16px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        font-size: 12px;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        margin: 0;
+        list-style: none;
+    }
+
+    .page-link {
+        padding: 6px 8px;
+        border-radius: 4px;
+        background: white;
+        border: 1px solid #dee2e6;
+        color: var(--primary);
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 11px;
+        transition: all 0.2s ease;
+    }
+
+    .page-link:hover {
+        background: var(--primary);
+        color: white;
+    }
+
+    .page-link.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    /* No Data Message */
+    .no-data {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+
+    .no-data-icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+    }
+
+    .btn-new {
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 16px;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-new:hover {
+        background: #5568d3;
+        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .container-fluid {
+        padding: 20px;
+        background: var(--light-bg);
+        min-height: 100vh;
+    }
+</style>
+
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="page-header">
+        <h1 class="page-title">📦 Compras</h1>
+        <div style="display:flex; gap:8px;">
+            <a href="{% url 'compras:compra_aprovacao_list' %}" class="btn-new" style="background:#16a34a;">Fila de Aprovacao</a>
+            <a href="{% url 'estoque:indicadores' %}" class="btn-new" style="background:#0ea5e9;">Indicadores de Estoque</a>
+            <a href="{% url 'compras:compra_create' %}" class="btn-new">+ Nova Compra</a>
+        </div>
+    </div>
+
+    <!-- KPI Cards - Compactos e lado a lado -->
+    <div class="kpi-container">
+        <div class="kpi-card primary">
+            <div class="kpi-left">
+                <div class="kpi-label">📊 Total de Compras</div>
+                <div class="kpi-value">{{ stats.total_compras }}</div>
+            </div>
+            <div class="kpi-icon">📋</div>
+        </div>
+        <div class="kpi-card success">
+            <div class="kpi-left">
+                <div class="kpi-label">💰 Valor Total</div>
+                <div class="kpi-value">{{ stats.total_valor|br_currency:0 }}</div>
+            </div>
+            <div class="kpi-icon">💵</div>
+        </div>
+        <div class="kpi-card info">
+            <div class="kpi-left">
+                <div class="kpi-label">🎯 Ticket Médio</div>
+                <div class="kpi-value">{{ stats.ticket_medio|br_currency:0 }}</div>
+            </div>
+            <div class="kpi-icon">📈</div>
+        </div>
+        <div class="kpi-card warning">
+            <div class="kpi-left">
+                <div class="kpi-label">🏢 Fornecedores</div>
+                <div class="kpi-value">{{ stats.total_fornecedores }}</div>
+            </div>
+            <div class="kpi-icon">🤝</div>
+        </div>
+    </div>
+
+    <!-- Tendências e Top Fornecedores -->
+    <div class="dashboard-row">
+        <!-- Tendências do Mês -->
+        {% if tendencias %}
+        <div class="card">
+            <div class="card-header">📊 Tendências do Mês</div>
+            <div class="card-body">
+                <div class="trends-grid">
+                    <div class="trend-item">
+                        <div class="trend-label">Mês Atual</div>
+                        <div class="trend-value">{{ tendencias.gasto_mes_atual|br_currency:0 }}</div>
+                    </div>
+                    <div class="trend-item">
+                        <div class="trend-label">Mês Anterior</div>
+                        <div class="trend-value">{{ tendencias.gasto_mes_anterior|br_currency:0 }}</div>
+                    </div>
+                    <div class="trend-item">
+                        <div class="trend-label">Variação</div>
+                        <div class="trend-badge {% if tendencias.variacao_percentual > 0 %}negative{% elif tendencias.variacao_percentual < 0 %}positive{% else %}neutral{% endif %}">
+                            {{ tendencias.variacao_percentual|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Top 5 Fornecedores -->
+        {% if top_fornecedores %}
+        <div class="card">
+            <div class="card-header">⭐ Top 5 Fornecedores</div>
+            <div class="card-body">
+                <div class="supplier-grid">
+                    {% for fornecedor in top_fornecedores %}
+                    <div class="supplier-card">
+                        <div>
+                            <div class="supplier-name">{{ fornecedor.nome }}</div>
+                            <div class="supplier-count">{{ fornecedor.quantidade_compras }} compra{{ fornecedor.quantidade_compras|pluralize }}</div>
+                        </div>
+                        <div class="supplier-value">{{ fornecedor.total_valor|br_currency:0 }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Filtros Compactos -->
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-body">
+            <form method="get" class="filter-form">
+                <div class="form-group">
+                    <label class="form-label">🔍 Fornecedor</label>
+                    <input type="text" name="fornecedor" class="form-control" placeholder="Buscar..." value="{{ request.GET.fornecedor }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Centro</label>
+                    <select name="centro_custo" class="form-select">
+                        <option value="">Todos</option>
+                        {% for value, label in centros_custo %}
+                            <option value="{{ value }}" {% if request.GET.centro_custo == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">De</label>
+                    <input type="date" name="data_inicio" class="form-control" value="{{ request.GET.data_inicio }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Até</label>
+                    <input type="date" name="data_fim" class="form-control" value="{{ request.GET.data_fim }}">
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn-filter">🔎 Filtrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabela de Compras -->
+    <div class="card table-container">
+        <div class="card-header">📋 Compras Recentes</div>
+        <div style="overflow-x: auto;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#ID</th>
+                        <th>Status</th>
+                        <th>Data</th>
+                        <th>Fornecedor</th>
+                        <th>Centro</th>
+                        <th>Itens</th>
+                        <th style="text-align: right;">Valor Total</th>
+                        <th style="text-align: center;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for compra in compras %}
+                        <tr>
+                            <td><strong>#{{ compra.id }}</strong></td>
+                            <td>
+                                {% if compra.status == 'RECEBIDA' %}
+                                    <span class="badge badge-success">Recebida</span>
+                                {% elif compra.status == 'COMPRADA' %}
+                                    <span class="badge badge-info">Comprada</span>
+                                {% elif compra.status == 'APROVADA' %}
+                                    <span class="badge badge-primary">Aprovada</span>
+                                {% elif compra.status == 'CANCELADA' %}
+                                    <span class="badge badge-danger">Cancelada</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">Solicitada</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge badge-primary">{{ compra.data_compra|date:"d/m/Y" }}</span></td>
+                            <td>{{ compra.fornecedor.nome }}</td>
+                            <td><span class="badge badge-secondary">{{ compra.centro_custo }}</span></td>
+                            <td><span class="badge badge-info">{{ compra.itens.count }}</span></td>
+                            <td style="text-align: right;"><strong style="color: var(--success);">{{ compra.valor_total|br_currency }}</strong></td>
+                            <td style="text-align: center;">
+                                <div class="btn-group" style="justify-content: center;">
+                                    <a href="{% url 'compras:compra_detail' compra.id %}" class="btn-sm btn-view" title="Visualizar">👁️</a>
+                                    <a href="{% url 'compras:compra_update' compra.id %}" class="btn-sm btn-edit" title="Editar">✏️</a>
+                                    {% if compra.status == 'APROVADA' %}
+                                    <a href="{% url 'estoque:recebimento_detail' compra.id %}" class="btn-sm" title="Receber no Estoque" style="background:#56ab2f;color:#fff;border-radius:4px;border:none;text-decoration:none;">📥</a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" style="padding: 0;">
+                                <div class="no-data">
+                                    <div class="no-data-icon">📭</div>
+                                    <div>Nenhuma compra encontrada</div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Paginação -->
+    {% if is_paginated %}
+        <div class="pagination-wrapper">
+            <div>
+                <strong>{{ page_obj.paginator.count }}</strong> compras | 
+                Página <strong>{{ page_obj.number }}</strong> de <strong>{{ page_obj.paginator.num_pages }}</strong>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <label style="font-size: 12px; font-weight: 600;">Itens:</label>
+                <form method="get" style="display: flex; gap: 4px;">
+                    <select name="page_size" class="form-select" style="width: auto; height: 30px; font-size: 12px;" onchange="this.form.submit()">
+                        <option value="20" {% if request.GET.page_size == '20' or not request.GET.page_size %}selected{% endif %}>20</option>
+                        <option value="40" {% if request.GET.page_size == '40' %}selected{% endif %}>40</option>
+                        <option value="60" {% if request.GET.page_size == '60' %}selected{% endif %}>60</option>
+                    </select>
+                    {% if request.GET.fornecedor %}<input type="hidden" name="fornecedor" value="{{ request.GET.fornecedor }}">{% endif %}
+                    {% if request.GET.centro_custo %}<input type="hidden" name="centro_custo" value="{{ request.GET.centro_custo }}">{% endif %}
+                    {% if request.GET.data_inicio %}<input type="hidden" name="data_inicio" value="{{ request.GET.data_inicio }}">{% endif %}
+                    {% if request.GET.data_fim %}<input type="hidden" name="data_fim" value="{{ request.GET.data_fim }}">{% endif %}
+                </form>
+            </div>
+            <nav>
+                <ul class="pagination">
+                    {% if page_obj.has_previous %}
+                        <li><a class="page-link" href="?page=1{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.fornecedor %}&fornecedor={{ request.GET.fornecedor }}{% endif %}{% if request.GET.centro_custo %}&centro_custo={{ request.GET.centro_custo }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">⏮</a></li>
+                        <li><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.fornecedor %}&fornecedor={{ request.GET.fornecedor }}{% endif %}{% if request.GET.centro_custo %}&centro_custo={{ request.GET.centro_custo }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">◀</a></li>
+                    {% endif %}
+
+                    <li><span class="page-link active">{{ page_obj.number }}</span></li>
+
+                    {% if page_obj.has_next %}
+                        <li><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.fornecedor %}&fornecedor={{ request.GET.fornecedor }}{% endif %}{% if request.GET.centro_custo %}&centro_custo={{ request.GET.centro_custo }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">▶</a></li>
+                        <li><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.fornecedor %}&fornecedor={{ request.GET.fornecedor }}{% endif %}{% if request.GET.centro_custo %}&centro_custo={{ request.GET.centro_custo }}{% endif %}{% if request.GET.data_inicio %}&data_inicio={{ request.GET.data_inicio }}{% endif %}{% if request.GET.data_fim %}&data_fim={{ request.GET.data_fim }}{% endif %}">⏭</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

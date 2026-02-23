@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Conta #{{ conta.id }}{% endblock %}
+{% block page_title %}Conta #{{ conta.id }}{% endblock %}
+{% block content %}
+<style>
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06)}
+  .btn{display:inline-block;padding:8px 12px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;border:none;cursor:pointer}
+  .btn-secondary{background:#374151}
+  .muted{color:#6b7280;font-size:13px}
+</style>
+<div class="card">
+  <h2 style="margin-top:0;">{{ conta.descricao }}</h2>
+  <div class="muted">Venc: {{ conta.vencimento|date:"d/m/Y" }} - Centro: {{ conta.centro_custo }} - Valor: R$ {{ conta.valor }}</div>
+  <div class="muted">Status: {{ conta.status }} - Exige comprovante: {{ conta.exige_comprovante }} {% if conta.importado %}- (importado){% endif %}</div>
+  {% if conta.comprovante %}<p class="muted">Comprovante: <a href="{% url 'contas:download_comprovante' conta.id %}">baixar</a></p>{% endif %}
+  {% if conta.boleto %}<p class="muted">Boleto: <a href="{% url 'contas:download_boleto' conta.id %}">baixar</a></p>{% endif %}
+  {% if conta.nota_fiscal %}<p class="muted">Nota fiscal: <a href="{% url 'contas:download_nota_fiscal' conta.id %}">baixar</a></p>{% endif %}
+  {% if conta.pedido %}<p class="muted">Pedido/Orcamento: <a href="{% url 'contas:download_pedido' conta.id %}">baixar</a></p>{% endif %}
+  {% if conta.observacoes %}<p class="muted">Obs: {{ conta.observacoes }}</p>{% endif %}
+  <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+    <a class="btn" href="{% url 'contas:conta_update' conta.id %}">Editar</a>
+    <a class="btn btn-secondary" href="{% url 'contas:confirmar_pagamento' conta.id %}">Confirmar pagamento</a>
+    {% if conta.status == "PAGA" %}
+      <form method="post" action="{% url 'contas:reabrir_conta' conta.id %}" style="display:inline;">{% csrf_token %}<button class="btn btn-secondary" type="submit">Reabrir conta</button></form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}{% if form.instance.pk %}Editar Boleto{% else %}Novo Boleto{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <h1 class="mb-4">
+                {% if form.instance.pk %}Editar Boleto{% else %}Criar Novo Boleto{% endif %}
+            </h1>
+
+            <form method="post" enctype="multipart/form-data" class="card">
+                {% csrf_token %}
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.cliente.label }}</label>
+                            {{ form.cliente }}
+                            {% if form.cliente.errors %}<div class="text-danger">{{ form.cliente.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.numero_boleto.label }}</label>
+                            {{ form.numero_boleto }}
+                            {% if form.numero_boleto.errors %}<div class="text-danger">{{ form.numero_boleto.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">{{ form.descricao.label }}</label>
+                            {{ form.descricao }}
+                            {% if form.descricao.errors %}<div class="text-danger">{{ form.descricao.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.valor.label }}</label>
+                            {{ form.valor }}
+                            {% if form.valor.errors %}<div class="text-danger">{{ form.valor.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.data_vencimento.label }}</label>
+                            {{ form.data_vencimento }}
+                            {% if form.data_vencimento.errors %}<div class="text-danger">{{ form.data_vencimento.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.vendedor.label }}</label>
+                            {{ form.vendedor }}
+                            {% if form.vendedor.errors %}<div class="text-danger">{{ form.vendedor.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.status.label }}</label>
+                            {{ form.status }}
+                            {% if form.status.errors %}<div class="text-danger">{{ form.status.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">{{ form.comprovante_pagamento.label }}</label>
+                            {{ form.comprovante_pagamento }}
+                            {% if form.comprovante_pagamento.errors %}<div class="text-danger">{{ form.comprovante_pagamento.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">{{ form.observacoes.label }}</label>
+                            {{ form.observacoes }}
+                            {% if form.observacoes.errors %}<div class="text-danger">{{ form.observacoes.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="card-footer d-flex justify-content-between">
+                    <a href="{% url 'boletos:boleto_list' %}" class="btn btn-secondary">← Cancelar</a>
+                    <button type="submit" class="btn btn-primary">
+                        {% if form.instance.pk %}📝 Salvar Alterações{% else %}➕ Criar Boleto{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select {
+        border-radius: 0.375rem;
+        border: 1px solid #dee2e6;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+</style>
+{% endblock %}

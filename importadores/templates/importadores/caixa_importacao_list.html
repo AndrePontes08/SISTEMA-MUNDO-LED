@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Historico PDF Caixa{% endblock %}
+{% block page_title %}Historico de Importacoes PDF Caixa{% endblock %}
+{% block content %}
+<style>
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06);margin-bottom:12px}
+  .btn{display:inline-block;padding:8px 12px;border-radius:10px;background:#0f172a;color:#fff;text-decoration:none}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left}
+  .SUCESSO{color:#166534;font-weight:700}.PARCIAL{color:#92400e;font-weight:700}.ERRO{color:#991b1b;font-weight:700}
+</style>
+
+<div class="card">
+  <a class="btn" href="{% url 'importadores:caixa_importar' %}">Novo PDF</a>
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Unidade</th>
+        <th>Total vendas</th>
+        <th>Baixas</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in importacoes %}
+      <tr>
+        <td>{{ i.data_referencia|date:"d/m/Y" }}</td>
+        <td>{{ i.get_unidade_display }}</td>
+        <td>{{ i.total_vendas }}</td>
+        <td>{{ i.itens_baixados }}/{{ i.itens_detectados }} (inc: {{ i.itens_inconsistentes }})</td>
+        <td class="{{ i.status }}">{{ i.status }}</td>
+        <td><a href="{% url 'importadores:caixa_importacao_detail' i.id %}">Detalhes</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">Sem importacoes.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+

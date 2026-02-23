@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Financeiro{% endblock %}
+{% block page_title %}Financeiro{% endblock %}
+{% block content %}
+<style>
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06);margin-bottom:12px}
+  .btn{display:inline-block;padding:9px 13px;border-radius:10px;background:#0f172a;color:#fff;text-decoration:none}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+</style>
+<div class="card">
+  <h2>Modulo Financeiro</h2>
+  <p>Importacao de OFX, historico e conciliacao automatica.</p>
+  <div class="row">
+    <a class="btn" href="{% url 'financeiro:importar_ofx' %}">Importar OFX</a>
+    <a class="btn" href="{% url 'financeiro:conta_bancaria_create' %}">Cadastrar Conta Bancaria</a>
+    <a class="btn" href="{% url 'financeiro:historico_importacoes' %}">Historico de Importacoes</a>
+    <a class="btn" href="{% url 'financeiro:conciliacao' %}">Conciliacao</a>
+  </div>
+</div>
+{% endblock %}

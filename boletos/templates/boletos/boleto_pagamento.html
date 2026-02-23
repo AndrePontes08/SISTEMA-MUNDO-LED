@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar Pagamento - {{ boleto.numero_boleto }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <h1 class="mb-4">Registrar Pagamento</h1>
+
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Boleto {{ boleto.numero_boleto }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <strong>Cliente:</strong><br>
+                            {{ boleto.cliente.nome }}
+                        </div>
+                        <div class="col-6">
+                            <strong>Valor:</strong><br>
+                            <span class="fs-5">R$ {{ boleto.valor|floatformat:2 }}</span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Vencimento:</strong><br>
+                            {{ boleto.data_vencimento|date:"d/m/Y" }}
+                        </div>
+                        <div class="col-6">
+                            <strong>Status Atual:</strong><br>
+                            <span class="badge bg-info">{{ boleto.get_status_display }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <form method="post" enctype="multipart/form-data" class="card">
+                {% csrf_token %}
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.status.label }}</label>
+                        {{ form.status }}
+                        {% if form.status.errors %}<div class="text-danger">{{ form.status.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.data_pagamento.label }}</label>
+                        {{ form.data_pagamento }}
+                        {% if form.data_pagamento.errors %}<div class="text-danger">{{ form.data_pagamento.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.comprovante_pagamento.label }} *</label>
+                        <div class="form-text mb-2">Anexe um arquivo de comprovante (PDF, imagem, etc)</div>
+                        {{ form.comprovante_pagamento }}
+                        {% if form.comprovante_pagamento.errors %}<div class="text-danger">{{ form.comprovante_pagamento.errors }}</div>{% endif %}
+                    </div>
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="card-footer d-flex justify-content-between">
+                    <a href="{% url 'boletos:boleto_detail' boleto.pk %}" class="btn btn-secondary">← Cancelar</a>
+                    <button type="submit" class="btn btn-success">✅ Confirmar Pagamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select {
+        border-radius: 0.375rem;
+        border: 1px solid #dee2e6;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+</style>
+{% endblock %}

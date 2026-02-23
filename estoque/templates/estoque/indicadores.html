@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Indicadores de Estoque{% endblock %}
+{% block page_title %}Indicadores de Estoque{% endblock %}
+{% block content %}
+<style>
+  .card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 10px rgba(0,0,0,.06); margin-bottom:12px; }
+  .row { display:grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+  label { display:block; font-size:13px; color:#374151; margin-bottom:6px; }
+  input { width:100%; padding:8px; border:1px solid #d1d5db; border-radius:8px; }
+  button { padding:8px 12px; border-radius:10px; background:#111827; color:#fff; border:none; cursor:pointer; }
+  table { width:100%; border-collapse: collapse; margin-top:10px; }
+  th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; }
+  .muted { color:#6b7280; font-size:13px; }
+  .right { text-align:right; }
+</style>
+<div class="card">
+  <h2>Indicadores</h2>
+  <p class="muted">Endpoint JSON: <code>{% url 'estoque:indicadores' %}?format=json</code></p>
+  <form method="get" class="row">
+    <div><label for="dias_estoque">Dias para tempo medio</label><input id="dias_estoque" type="number" min="1" name="dias_estoque" value="{{ dias_estoque|default:365 }}"></div>
+    <div><label for="meses_giro">Meses para giro</label><input id="meses_giro" type="number" min="1" name="meses_giro" value="{{ meses_giro|default:12 }}"></div>
+    <div><button type="submit">Atualizar</button></div>
+  </form>
+</div>
+<div class="card">
+  <table>
+    <thead><tr><th>Produto</th><th class="right">Estoque atual</th><th class="right">Tempo medio (dias)</th><th class="right">Giro</th></tr></thead>
+    <tbody>
+    {% for item in indicadores %}<tr><td>{{ item.produto_nome }}</td><td class="right">{{ item.estoque_atual }}</td><td class="right">{{ item.tempo_medio }}</td><td class="right">{{ item.giro }}</td></tr>
+    {% empty %}<tr><td colspan="4" class="muted">Nenhum produto ativo encontrado.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

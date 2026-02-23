@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Lista Negra - Boletos{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1>🚫 Lista Negra de Clientes</h1>
+            <p class="text-muted">Clientes bloqueados e não elegíveis para crédito</p>
+        </div>
+    </div>
+
+    <!-- Menu de Navegação -->
+    <div class="card mb-4">
+        <div class="card-body p-2">
+            <div class="btn-group w-100" role="group">
+                <a href="{% url 'boletos:boleto_list' %}" class="btn btn-outline-primary">📄 Boletos</a>
+                <a href="{% url 'boletos:cliente_list' %}" class="btn btn-outline-primary">👥 Clientes</a>
+                <a href="{% url 'boletos:controle_fiado_list' %}" class="btn btn-outline-primary">💳 Fiados</a>
+                <a href="{% url 'boletos:lista_negra' %}" class="btn btn-outline-primary active">⛔ Lista Negra</a>
+            </div>
+        </div>
+    </div>
+
+    {% if clientes_bloqueados %}
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Data de Bloqueio</th>
+                            <th>Motivo</th>
+                            <th>Responsável</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in clientes_bloqueados %}
+                            <tr class="table-danger">
+                                <td><strong>{{ item.cliente.nome }}</strong></td>
+                                <td>{{ item.data_bloqueio|date:"d/m/Y" }}</td>
+                                <td>{{ item.motivo|truncatewords:10 }}</td>
+                                <td>{{ item.responsavel.get_full_name|default:"Sistema" }}</td>
+                                <td>
+                                    <a href="{% url 'boletos:cliente_detail' item.cliente.pk %}" class="btn btn-sm btn-primary" title="Ver Cliente">👁️</a>
+                                    <form method="post" action="{% url 'boletos:cliente_remover_lista_negra' item.cliente.pk %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-success" title="Remover de Lista Negra" onclick="return confirm('Tem certeza?')">✅</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-success">
+            ✅ Nenhum cliente na lista negra no momento
+        </div>
+        <div class="text-center mt-4">
+            <a href="{% url 'boletos:cliente_list' %}" class="btn btn-primary">← Ver Clientes</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

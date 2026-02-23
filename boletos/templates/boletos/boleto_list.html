@@ -1,0 +1,563 @@
+{% extends "base.html" %}
+{% load static %}
+{% load formatters %}
+
+{% block title %}Boletos{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary: #667eea;
+        --success: #56ab2f;
+        --info: #06a3e6;
+        --warning: #ffa500;
+        --danger: #ff6b6b;
+        --light-bg: #f8f9fa;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #212529;
+        margin: 0;
+    }
+
+    .nav-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 24px;
+        border-bottom: none;
+    }
+
+    .nav-tab {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #495057;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .nav-tab:hover {
+        background: #f8f9fa;
+        border-color: var(--primary);
+    }
+
+    .nav-tab.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    /* KPI Cards */
+    .kpi-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+        margin-bottom: 24px;
+    }
+
+    .kpi-card {
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+        border-top: 3px solid;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .kpi-card.primary { border-top-color: var(--primary); }
+    .kpi-card.success { border-top-color: var(--success); }
+    .kpi-card.info { border-top-color: var(--info); }
+    .kpi-card.warning { border-top-color: var(--warning); }
+    .kpi-card.danger { border-top-color: var(--danger); }
+
+    .kpi-label {
+        font-size: 11px;
+        color: #6c757d;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+
+    .kpi-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #212529;
+    }
+
+    /* Info Box */
+    .info-box {
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 16px;
+        border-left: 4px solid var(--info);
+        font-size: 12px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        align-items: center;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .info-label {
+        color: #6c757d;
+        font-weight: 600;
+    }
+
+    .info-value {
+        font-weight: 700;
+        color: #212529;
+    }
+
+    /* Filtros */
+    .filter-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+        align-items: flex-end;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .form-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .form-control, .form-select {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 13px;
+        height: 36px;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        outline: none;
+    }
+
+    .btn-filter {
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-weight: 600;
+        font-size: 13px;
+        height: 36px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-filter:hover {
+        background: #5568d3;
+        box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-new {
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 16px;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-new:hover {
+        background: #5568d3;
+        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .card {
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        margin-bottom: 24px;
+    }
+
+    .card-header {
+        background: #f8f9fa;
+        padding: 14px 16px;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 600;
+        font-size: 14px;
+        color: #212529;
+    }
+
+    .card-body {
+        padding: 16px;
+    }
+
+    /* Tabela */
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin-bottom: 0;
+    }
+
+    .table thead {
+        background: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .table th {
+        padding: 12px 14px;
+        text-align: left;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+    }
+
+    .table tbody tr {
+        border-bottom: 1px solid #e9ecef;
+        transition: background 0.2s ease;
+    }
+
+    .table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .table td {
+        padding: 12px 14px;
+        vertical-align: middle;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .badge-primary { background: #e7f3ff; color: var(--primary); }
+    .badge-success { background: #e8f5e9; color: var(--success); }
+    .badge-info { background: #e0f7fa; color: var(--info); }
+    .badge-warning { background: #fff3e0; color: var(--warning); }
+    .badge-danger { background: #ffebee; color: var(--danger); }
+    .badge-secondary { background: #e9ecef; color: #495057; }
+
+    .btn-group {
+        display: flex;
+        gap: 6px;
+    }
+
+    .btn-sm {
+        padding: 6px 10px;
+        font-size: 11px;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .btn-view {
+        background: #e7f3ff;
+        color: var(--primary);
+    }
+
+    .btn-view:hover {
+        background: #d1e7ff;
+    }
+
+    .btn-edit {
+        background: #fff3e0;
+        color: var(--warning);
+    }
+
+    .btn-edit:hover {
+        background: #ffe0b2;
+    }
+
+    .btn-success-sm {
+        background: #e8f5e9;
+        color: var(--success);
+    }
+
+    .btn-success-sm:hover {
+        background: #c8e6c9;
+    }
+
+    /* Paginação */
+    .pagination-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 16px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        font-size: 12px;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        margin: 0;
+        list-style: none;
+    }
+
+    .page-link {
+        padding: 6px 8px;
+        border-radius: 4px;
+        background: white;
+        border: 1px solid #dee2e6;
+        color: var(--primary);
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 11px;
+        transition: all 0.2s ease;
+    }
+
+    .page-link:hover {
+        background: var(--primary);
+        color: white;
+    }
+
+    .page-link.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    .container-fluid {
+        padding: 20px;
+        background: var(--light-bg);
+        min-height: 100vh;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+</style>
+
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="page-header">
+        <h1 class="page-title">📄 Boletos</h1>
+        <a href="{% url 'boletos:boleto_create' %}" class="btn-new">+ Novo Boleto</a>
+    </div>
+
+    <!-- Menu de Navegação -->
+    <div class="nav-tabs">
+        <a href="{% url 'boletos:boleto_list' %}" class="nav-tab active">📄 Boletos</a>
+        <a href="{% url 'boletos:cliente_list' %}" class="nav-tab">👥 Clientes</a>
+        <a href="{% url 'boletos:controle_fiado_list' %}" class="nav-tab">💳 Fiados</a>
+        <a href="{% url 'boletos:lista_negra' %}" class="nav-tab">⛔ Lista Negra</a>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-container">
+        <div class="kpi-card warning">
+            <div class="kpi-label">📋 Abertos</div>
+            <div class="kpi-value">{{ stats.total_abertos }}</div>
+        </div>
+        <div class="kpi-card info">
+            <div class="kpi-label">⏳ Pendentes</div>
+            <div class="kpi-value">{{ stats.total_pendentes }}</div>
+        </div>
+        <div class="kpi-card success">
+            <div class="kpi-label">✅ Pagos</div>
+            <div class="kpi-value">{{ stats.total_pagos }}</div>
+        </div>
+        <div class="kpi-card danger">
+            <div class="kpi-label">⚠️ Vencidos</div>
+            <div class="kpi-value">{{ stats.total_vencidos }}</div>
+        </div>
+    </div>
+
+    <!-- Info Box - Vencidos por Banco -->
+    <div class="info-box">
+        <div class="info-item">
+            <span class="info-label">🏦 Sicredi:</span>
+            <span class="info-value">{{ vencidos_by_bank.SICREDI|br_currency:0 }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">🏦 Banco do Brasil:</span>
+            <span class="info-value">{{ vencidos_by_bank.BRASIL|br_currency:0 }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">🏦 Outros:</span>
+            <span class="info-value">{{ vencidos_by_bank.OUTRO|br_currency:0 }}</span>
+        </div>
+        <form action="{% url 'boletos:boleto_import_vencidos' %}" method="post" enctype="multipart/form-data" style="display: flex; gap: 8px; align-items: center;">
+            {% csrf_token %}
+            <div style="flex: 1;">{{ import_form.arquivo }}</div>
+            <button class="btn-filter" style="height: 32px; padding: 4px 12px; font-size: 12px;">Importar</button>
+        </form>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="filter-form">
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="">Todos</option>
+                        {% for value, label in status_choices %}
+                            <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Cliente</label>
+                    <select name="cliente" class="form-select">
+                        <option value="">Todos</option>
+                        {% for cliente in clientes %}
+                            <option value="{{ cliente.id }}" {% if request.GET.cliente|stringformat:"s" == cliente.id|stringformat:"s" %}selected{% endif %}>{{ cliente.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Vendedor</label>
+                    <input type="text" name="vendedor" class="form-control" placeholder="Buscar...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="visibility: hidden;">Opções</label>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="submit" class="btn-filter" style="flex: 1;">🔎 Filtrar</button>
+                        <a href="{% url 'boletos:boleto_export_necessita_comprovante' %}" class="btn-filter" style="flex: 1; text-align: center; text-decoration: none;">⬇️ Exportar</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabela de Boletos -->
+    <div class="card">
+        <div class="card-header">Boletos Recentes</div>
+        <div style="overflow-x: auto;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Cliente</th>
+                        <th style="text-align: right;">Valor</th>
+                        <th>Vencimento</th>
+                        <th>Status</th>
+                        <th>Vendedor</th>
+                        <th style="text-align: center;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for boleto in boletos %}
+                        <tr>
+                            <td><strong>{{ boleto.numero_boleto }}</strong></td>
+                            <td>{{ boleto.cliente.nome }}</td>
+                            <td style="text-align: right;">{{ boleto.valor|br_currency }}</td>
+                            <td>
+                                <span class="badge {% if boleto.dias_vencimento < 0 %}badge-danger{% elif boleto.dias_vencimento < 7 %}badge-warning{% else %}badge-info{% endif %}">
+                                    {{ boleto.data_vencimento|date:"d/m/Y" }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {% if boleto.status == 'PAGO' %}badge-success{% elif boleto.status == 'ABERTO' %}badge-info{% elif boleto.status == 'VENCIDO' %}badge-danger{% else %}badge-secondary{% endif %}">
+                                    {{ boleto.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ boleto.vendedor.get_full_name|default:"N/A" }}</td>
+                            <td style="text-align: center;">
+                                <div class="btn-group" style="justify-content: center;">
+                                    <a href="{% url 'boletos:boleto_detail' boleto.pk %}" class="btn-sm btn-view" title="Visualizar">👁️</a>
+                                    <a href="{% url 'boletos:boleto_update' boleto.pk %}" class="btn-sm btn-edit" title="Editar">✏️</a>
+                                    <a href="{% url 'boletos:boleto_pagamento' boleto.pk %}" class="btn-sm btn-success-sm" title="Pagamento">💰</a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7">
+                                <div class="no-data">
+                                    <div style="font-size: 48px; margin-bottom: 12px;">📭</div>
+                                    <div>Nenhum boleto encontrado</div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Paginação -->
+    {% if is_paginated %}
+        <div class="pagination-wrapper">
+            <div>
+                <strong>{{ page_obj.paginator.count }}</strong> boletos | 
+                Página <strong>{{ page_obj.number }}</strong> de <strong>{{ page_obj.paginator.num_pages }}</strong>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <label style="font-size: 12px; font-weight: 600;">Itens:</label>
+                <form method="get" style="display: flex; gap: 4px;">
+                    <select name="page_size" class="form-select" style="width: auto; height: 30px; font-size: 12px;" onchange="this.form.submit()">
+                        <option value="20" {% if request.GET.page_size == '20' or not request.GET.page_size %}selected{% endif %}>20</option>
+                        <option value="40" {% if request.GET.page_size == '40' %}selected{% endif %}>40</option>
+                        <option value="60" {% if request.GET.page_size == '60' %}selected{% endif %}>60</option>
+                    </select>
+                    {% if request.GET.status %}<input type="hidden" name="status" value="{{ request.GET.status }}">{% endif %}
+                    {% if request.GET.cliente %}<input type="hidden" name="cliente" value="{{ request.GET.cliente }}">{% endif %}
+                    {% if request.GET.vendedor %}<input type="hidden" name="vendedor" value="{{ request.GET.vendedor }}">{% endif %}
+                </form>
+            </div>
+            <nav>
+                <ul class="pagination">
+                    {% if page_obj.has_previous %}
+                        <li><a class="page-link" href="?page=1{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.cliente %}&cliente={{ request.GET.cliente }}{% endif %}">⏮</a></li>
+                        <li><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.cliente %}&cliente={{ request.GET.cliente }}{% endif %}">◀</a></li>
+                    {% endif %}
+
+                    <li><span class="page-link active">{{ page_obj.number }}</span></li>
+
+                    {% if page_obj.has_next %}
+                        <li><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.cliente %}&cliente={{ request.GET.cliente }}{% endif %}">▶</a></li>
+                        <li><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.cliente %}&cliente={{ request.GET.cliente }}{% endif %}">⏭</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

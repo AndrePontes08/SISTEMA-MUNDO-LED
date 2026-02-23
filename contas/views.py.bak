@@ -1,0 +1,163 @@
+from __future__ import annotations
+
+from django.contrib import messages
+from django.db.models import Sum
+from django.http import JsonResponse
+from django.shortcuts import redirect
+from django.urls import reverse, reverse_lazy
+from django.views.generic import CreateView, DetailView, FormView, ListView, TemplateView, UpdateView, View
+
+from core.services.permissoes import GroupRequiredMixin
+from core.services.paginacao import get_pagination_params
+
+from contas.forms import ContaAPagarForm, ConfirmarPagamentoForm, ImportCSVForm
+from contas.models import ContaAPagar, StatusConta
+from contas.services.pagamento_service import confirmar_pagamento
+from contas.services.importacao_csv import import_contas_csv
+from contas.services.imposto_service import calcular_imposto_mes
+
+
+class FinanceiroAccessMixin(GroupRequiredMixin):
+    required_groups = ("admin/gestor", "financeiro")
+
+
+class ContasDashboardView(FinanceiroAccessMixin, TemplateView):
+    template_name = "contas/dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from django.utils import timezone
+
+        hoje = timezone.localdate()
+        ano, mes = hoje.year, hoje.month
+
+        qs_mes = ContaAPagar.objects.filter(vencimento__year=ano, vencimento__month=mes)
+        ctx["total_mes"] = qs_mes.aggregate(t=Sum("valor"))["t"] or 0
+        ctx["abertas_mes"] = qs_mes.filter(status=StatusConta.ABERTA).count()
+        ctx["pagas_mes"] = qs_mes.filter(status=StatusConta.PAGA).count()
+
+        ctx["imposto"] = calcular_imposto_mes(ano, mes)
+        ctx["ultimas"] = ContaAPagar.objects.select_related("categoria", "fornecedor").order_by("-id")[:10]
+        return ctx
+
+
+class ContaListView(FinanceiroAccessMixin, ListView):
+    model = ContaAPagar
+    template_name = "contas/conta_list.html"
+    context_object_name = "contas"
+
+    def get_paginate_by(self, queryset):
+        return get_pagination_params(self.request).page_size
+
+    def get_queryset(self):
+        qs = ContaAPagar.objects.select_related("categoria", "fornecedor").order_by("-vencimento", "-id")
+
+        status = (self.request.GET.get("status") or "").strip()
+        if status in StatusConta.values:
+            qs = qs.filter(status=status)
+
+        centro = (self.request.GET.get("centro_custo") or "").strip()
+        if centro:
+            qs = qs.filter(centro_custo=centro)
+
+        q = (self.request.GET.get("q") or "").strip()
+        if q:
+            qs = qs.filter(descricao__icontains=q)
+
+        # filtro por mês (YYYY-MM)
+        ym = (self.request.GET.get("mes") or "").strip()
+        if len(ym) == 7 and ym[4] == "-":
+            y, m = ym.split("-")
+            if y.isdigit() and m.isdigit():
+                qs = qs.filter(vencimento__year=int(y), vencimento__month=int(m))
+
+        return qs
+
+
+class ContaDetailView(FinanceiroAccessMixin, DetailView):
+    model = ContaAPagar
+    template_name = "contas/conta_detail.html"
+    context_object_name = "conta"
+
+
+class ContaCreateView(FinanceiroAccessMixin, CreateView):
+    model = ContaAPagar
+    form_class = ContaAPagarForm
+    template_name = "contas/conta_form.html"
+
+    def get_success_url(self):
+        return reverse("contas:conta_detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        self.object = form.save(commit=False)
+        self.object.importado = False
+        self.object.save()
+        messages.success(self.request, "Conta criada.")
+        return redirect(self.get_success_url())
+
+
+class ContaUpdateView(FinanceiroAccessMixin, UpdateView):
+    model = ContaAPagar
+    form_class = ContaAPagarForm
+    template_name = "contas/conta_form.html"
+
+    def get_success_url(self):
+        messages.success(self.request, "Conta atualizada.")
+        return reverse("contas:conta_detail", kwargs={"pk": self.object.pk})
+
+
+class ConfirmarPagamentoView(FinanceiroAccessMixin, FormView):
+    form_class = ConfirmarPagamentoForm
+    template_name = "contas/confirmar_pagamento.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.conta = ContaAPagar.objects.get(pk=kwargs["pk"])
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["conta"] = self.conta
+        return ctx
+
+    def form_valid(self, form):
+        # permite anexar comprovante aqui também
+        arquivo = form.cleaned_data.get("comprovante")
+        if arquivo:
+            self.conta.comprovante = arquivo
+            self.conta.save(update_fields=["comprovante"])
+
+        try:
+            confirmar_pagamento(self.conta)
+            messages.success(self.request, "Pagamento confirmado.")
+            return redirect("contas:conta_detail", pk=self.conta.pk)
+        except Exception as e:
+            messages.error(self.request, str(e))
+            return self.form_invalid(form)
+
+
+class ImportCSVView(FinanceiroAccessMixin, FormView):
+    """
+    UI para importar CSV (base inicial).
+    """
+    form_class = ImportCSVForm
+    template_name = "contas/import_csv.html"
+    success_url = reverse_lazy("contas:conta_list")
+
+    def form_valid(self, form):
+        arquivo = form.cleaned_data["arquivo"]
+        exige = bool(form.cleaned_data.get("exige_comprovante_padrao", False))
+
+        # csv.reader precisa de texto; garantimos decoding utf-8
+        content = arquivo.read().decode("utf-8", errors="ignore").splitlines()
+        import io
+        f = io.StringIO("\n".join(content))
+
+        result = import_contas_csv(f, fonte=f"UI:{arquivo.name}", exige_comprovante_padrao=exige)
+
+        messages.success(self.request, f"Importação concluída. Criados: {result['criados']}. Erros: {len(result['erros'])}.")
+        if result["erros"]:
+            # mostra alguns
+            for err in result["erros"][:8]:
+                messages.warning(self.request, err)
+
+        return super().form_valid(form)

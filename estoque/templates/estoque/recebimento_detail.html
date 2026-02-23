@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Receber Compra #{{ compra.id }}{% endblock %}
+{% block page_title %}Conferencia de Recebimento{% endblock %}
+
+{% block content %}
+<style>
+  .card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 10px rgba(0,0,0,.06); }
+  table { width:100%; border-collapse: collapse; margin-top:10px; }
+  th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; }
+  .muted { color:#6b7280; font-size:13px; }
+  .btn { display:inline-block; padding:8px 12px; border-radius:10px; background:#111827; color:#fff; text-decoration:none; border:none; cursor:pointer; }
+  .btn-outline { background:#fff; color:#111827; border:1px solid #d1d5db; }
+  .analysis-box { margin-top:14px; padding:14px; border:1px solid #dbeafe; border-radius:12px; background:#f8fbff; }
+  .analysis-grid { display:grid; gap:8px; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); }
+  .analysis-item { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px; }
+  .status-chip { display:inline-block; font-size:12px; padding:3px 8px; border-radius:999px; }
+  .status-ok { background:#dcfce7; color:#166534; }
+  .status-missing { background:#fee2e2; color:#991b1b; }
+</style>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+    <div>
+      <h2 style="margin:0;">Compra #{{ compra.id }} - {{ compra.fornecedor.nome }}</h2>
+      <div class="muted">Data da compra: {{ compra.data_compra|date:"d/m/Y" }} | Total: R$ {{ compra.valor_total }}</div>
+      <div class="muted">Aprovado por: {{ compra.aprovado_por|default:"-" }} | Em: {{ compra.aprovado_em|date:"d/m/Y H:i"|default:"-" }}</div>
+    </div>
+    <a class="btn" href="{% url 'estoque:recebimento_list' %}">Voltar para fila</a>
+  </div>
+
+  <div class="analysis-box">
+    <h3 style="margin:0 0 8px 0;">Anexos para conferencia</h3>
+    <div class="analysis-grid">
+      <div class="analysis-item">
+        <div>Orcamento 1</div>
+        {% if compra.orcamento_1 %}
+          <span class="status-chip status-ok">Anexo enviado</span>
+          <div style="margin-top:8px;"><a class="btn btn-outline" href="{% url 'compras:compra_download_file' compra.id 'orc1' %}">Baixar Orcamento 1</a></div>
+        {% else %}
+          <span class="status-chip status-missing">Sem anexo</span>
+        {% endif %}
+      </div>
+      <div class="analysis-item">
+        <div>Orcamento 2</div>
+        {% if compra.orcamento_2 %}
+          <span class="status-chip status-ok">Anexo enviado</span>
+          <div style="margin-top:8px;"><a class="btn btn-outline" href="{% url 'compras:compra_download_file' compra.id 'orc2' %}">Baixar Orcamento 2</a></div>
+        {% else %}
+          <span class="status-chip status-missing">Sem anexo</span>
+        {% endif %}
+      </div>
+      <div class="analysis-item">
+        <div>Orcamento 3</div>
+        {% if compra.orcamento_3 %}
+          <span class="status-chip status-ok">Anexo enviado</span>
+          <div style="margin-top:8px;"><a class="btn btn-outline" href="{% url 'compras:compra_download_file' compra.id 'orc3' %}">Baixar Orcamento 3</a></div>
+        {% else %}
+          <span class="status-chip status-missing">Sem anexo</span>
+        {% endif %}
+      </div>
+    </div>
+    <div style="margin-top:10px;" class="muted"><strong>Orcamento escolhido:</strong> {{ compra.get_orcamento_escolhido_display|default:"-" }}</div>
+    <div class="muted"><strong>Justificativa:</strong> {{ compra.justificativa_escolha|default:"-" }}</div>
+    <div class="muted"><strong>Observacoes da compra:</strong> {{ compra.observacoes|default:"-" }}</div>
+  </div>
+
+  <h3 style="margin-top:14px;">Itens para conferencia fisica</h3>
+  <table>
+    <thead><tr><th>Produto</th><th>Quantidade no sistema</th><th>Preco unitario</th><th>Subtotal</th></tr></thead>
+    <tbody>
+      {% for item in compra.itens.all %}
+      <tr>
+        <td>{{ item.produto.nome }}</td>
+        <td>{{ item.quantidade }}</td>
+        <td>R$ {{ item.preco_unitario }}</td>
+        <td>R$ {{ item.subtotal }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post" action="{% url 'estoque:recebimento_confirmar' compra.id %}" style="margin-top:14px;">
+    {% csrf_token %}
+    <label for="observacao_conferencia" style="font-weight:600;">Observacao da conferencia (opcional)</label>
+    <textarea id="observacao_conferencia" name="observacao_conferencia" rows="3" placeholder="Ex.: volumes conferidos, divergencias nao encontradas."></textarea>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="submit" class="btn">Confirmar recebimento no estoque</button>
+      <a class="btn btn-outline" href="{% url 'compras:compra_detail' compra.id %}">Abrir compra (somente consulta)</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

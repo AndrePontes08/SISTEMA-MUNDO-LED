@@ -1,0 +1,25 @@
+from __future__ import annotations
+
+from decimal import Decimal
+from django.db.models import Sum
+
+from contas.models import ContaAPagar, RegraImposto, StatusConta
+
+
+def calcular_imposto_mes(ano: int, mes: int) -> dict:
+    """
+    Calcula imposto estimado: soma das contas do mês (ABERTAS + PAGAS) * percentual da regra ativa.
+    """
+    regra = RegraImposto.objects.filter(ativo=True).order_by("-id").first()
+    percentual = regra.percentual if regra else Decimal("0.0000")
+
+    qs = ContaAPagar.objects.filter(vencimento__year=ano, vencimento__month=mes)
+    total = qs.aggregate(t=Sum("valor"))["t"] or Decimal("0.00")
+    imposto = (total * percentual).quantize(Decimal("0.01"))
+
+    return {
+        "percentual": percentual,
+        "total_mes": total.quantize(Decimal("0.01")),
+        "imposto_estimado": imposto,
+        "regra_nome": regra.nome if regra else "Sem regra ativa",
+    }

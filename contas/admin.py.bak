@@ -1,0 +1,65 @@
+from __future__ import annotations
+
+from django.contrib import admin
+
+from contas.models import (
+    Categoria,
+    CategoriaAlias,
+    CentroCusto,
+    RegraImposto,
+    ProjecaoMensal,
+    ContaAPagar,
+)
+
+
+class CategoriaAliasInline(admin.TabularInline):
+    model = CategoriaAlias
+    extra = 1
+    fields = ("nome", "nome_normalizado")
+    readonly_fields = ("nome_normalizado",)
+
+
+@admin.register(Categoria)
+class CategoriaAdmin(admin.ModelAdmin):
+    list_display = ("nome", "criado_em")
+    search_fields = ("nome", "nome_normalizado")
+    inlines = [CategoriaAliasInline]
+    readonly_fields = ("nome_normalizado", "criado_em")
+
+
+@admin.register(CategoriaAlias)
+class CategoriaAliasAdmin(admin.ModelAdmin):
+    list_display = ("nome", "principal", "criado_em")
+    search_fields = ("nome", "nome_normalizado", "principal__nome")
+    autocomplete_fields = ("principal",)
+    readonly_fields = ("nome_normalizado", "criado_em")
+
+
+@admin.register(CentroCusto)
+class CentroCustoAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "nome")
+    search_fields = ("codigo", "nome")
+
+
+@admin.register(RegraImposto)
+class RegraImpostoAdmin(admin.ModelAdmin):
+    list_display = ("nome", "percentual", "ativo", "criado_em")
+    list_filter = ("ativo",)
+    search_fields = ("nome",)
+
+
+@admin.register(ProjecaoMensal)
+class ProjecaoMensalAdmin(admin.ModelAdmin):
+    list_display = ("descricao", "centro_custo", "categoria", "valor_previsto", "ativo")
+    list_filter = ("centro_custo", "ativo")
+    search_fields = ("descricao",)
+    autocomplete_fields = ("categoria", "fornecedor")
+
+
+@admin.register(ContaAPagar)
+class ContaAPagarAdmin(admin.ModelAdmin):
+    list_display = ("id", "vencimento", "descricao", "centro_custo", "categoria", "valor", "status", "exige_comprovante", "importado")
+    list_filter = ("status", "centro_custo", "importado", "exige_comprovante", "vencimento")
+    search_fields = ("descricao", "categoria__nome", "fornecedor__nome")
+    date_hierarchy = "vencimento"
+    autocomplete_fields = ("categoria", "fornecedor")

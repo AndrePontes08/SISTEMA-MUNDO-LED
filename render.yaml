@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: erp9-web
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    preDeployCommand: python manage.py migrate
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120
+    healthCheckPath: /healthz/
+    envVars:
+      - key: DJANGO_ENV
+        value: prod
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: erp9-db
+          property: connectionString
+      - key: DJANGO_ALLOWED_HOSTS
+        sync: false
+        value: seu-app.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+        value: https://seu-app.onrender.com
+
+databases:
+  - name: erp9-db
+    databaseName: erp9
+    user: erp9_user
+    plan: starter

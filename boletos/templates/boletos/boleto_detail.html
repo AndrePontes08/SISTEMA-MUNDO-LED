@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}{{ boleto.numero_boleto }} - Detalhes do Boleto{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>Boleto {{ boleto.numero_boleto }}</h1>
+            <p class="text-muted">{{ boleto.descricao }}</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'boletos:boleto_update' boleto.pk %}" class="btn btn-warning">✏️ Editar</a>
+            <a href="{% url 'boletos:boleto_list' %}" class="btn btn-secondary">← Voltar</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Informações do Boleto</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Cliente:</strong><br>
+                            <a href="{% url 'boletos:cliente_detail' boleto.cliente.pk %}">{{ boleto.cliente.nome }}</a>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Vendedor:</strong><br>
+                            {{ boleto.vendedor.get_full_name|default:"Não atribuído" }}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Valor:</strong><br>
+                            <span class="fs-5">R$ {{ boleto.valor|floatformat:2 }}</span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Status:</strong><br>
+                            <span class="badge bg-{% if boleto.status == 'PAGO' %}success{% elif boleto.status == 'ABERTO' %}info{% elif boleto.status == 'VENCIDO' %}danger{% else %}secondary{% endif %} fs-6">
+                                {{ boleto.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Data de Emissão:</strong><br>
+                            {{ boleto.data_emissao|date:"d/m/Y" }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Data de Vencimento:</strong><br>
+                            <span class="badge bg-{% if boleto.dias_vencimento < 0 %}danger{% elif boleto.dias_vencimento < 7 %}warning{% else %}success{% endif %}">
+                                {{ boleto.data_vencimento|date:"d/m/Y" }} ({{ boleto.dias_vencimento }} dias)
+                            </span>
+                        </div>
+                    </div>
+
+                    {% if boleto.data_pagamento %}
+                        <div class="row">
+                            <div class="col-md-12">
+                                <strong>Data de Pagamento:</strong><br>
+                                {{ boleto.data_pagamento|date:"d/m/Y" }}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if boleto.observacoes %}
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Observações</h5>
+                    </div>
+                    <div class="card-body">
+                        {{ boleto.observacoes|linebreaks }}
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if boleto.comprovante_pagamento %}
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Comprovante de Pagamento</h5>
+                    </div>
+                    <div class="card-body">
+                        <a href="{{ boleto.comprovante_pagamento.url }}" class="btn btn-primary" target="_blank">
+                            📄 Download do Comprovante
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Ações</h5>
+                </div>
+                <div class="card-body">
+                    {% if boleto.status != 'PAGO' %}
+                        <a href="{% url 'boletos:boleto_pagamento' boleto.pk %}" class="btn btn-success w-100 mb-2">
+                            💰 Registrar Pagamento
+                        </a>
+                    {% endif %}
+                    <a href="{% url 'boletos:cliente_detail' boleto.cliente.pk %}" class="btn btn-info w-100 mb-2">
+                        👤 Ver Cliente
+                    </a>
+                    <a href="{% url 'boletos:boleto_list' %}" class="btn btn-outline-secondary w-100">
+                        ← Voltar
+                    </a>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Informações de Auditoria</h5>
+                </div>
+                <div class="card-body small">
+                    <p><strong>Criado em:</strong><br>{{ boleto.criado_em|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Atualizado em:</strong><br>{{ boleto.atualizado_em|date:"d/m/Y H:i" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

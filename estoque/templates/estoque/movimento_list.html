@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% load static %}
+{% load formatters %}
+
+{% block title %}Estoque - Movimentos{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary: #667eea;
+        --success: #56ab2f;
+        --info: #06a3e6;
+        --warning: #ffa500;
+        --danger: #ff6b6b;
+        --light-bg: #f8f9fa;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #212529;
+        margin: 0;
+    }
+
+    .nav-links {
+        display: flex;
+        gap: 8px;
+    }
+
+    .nav-link {
+        background: var(--primary);
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .nav-link:hover {
+        background: #5568d3;
+        box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+    }
+
+    .card {
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        margin-bottom: 24px;
+    }
+
+    .card-header {
+        background: #f8f9fa;
+        padding: 14px 16px;
+        border-bottom: 1px solid #e9ecef;
+        font-weight: 600;
+        font-size: 14px;
+        color: #212529;
+    }
+
+    .card-body {
+        padding: 16px;
+    }
+
+    /* Tabela */
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin-bottom: 0;
+    }
+
+    .table thead {
+        background: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .table th {
+        padding: 12px 14px;
+        text-align: left;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+    }
+
+    .table tbody tr {
+        border-bottom: 1px solid #e9ecef;
+        transition: background 0.2s ease;
+    }
+
+    .table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .table td {
+        padding: 12px 14px;
+        vertical-align: middle;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .badge-entrada { background: #e8f5e9; color: var(--success); }
+    .badge-saida { background: #ffebee; color: var(--danger); }
+    .badge-ajuste { background: #e0f2f1; color: #00796b; }
+
+    .text-muted {
+        color: #6c757d;
+        font-size: 12px;
+    }
+
+    /* Paginação */
+    .pagination-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 16px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        font-size: 12px;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        margin: 0;
+        list-style: none;
+    }
+
+    .page-link {
+        padding: 6px 8px;
+        border-radius: 4px;
+        background: white;
+        border: 1px solid #dee2e6;
+        color: var(--primary);
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 11px;
+        transition: all 0.2s ease;
+        text-decoration: none;
+    }
+
+    .page-link:hover {
+        background: var(--primary);
+        color: white;
+    }
+
+    .page-link.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    .container-fluid {
+        padding: 20px;
+        background: var(--light-bg);
+        min-height: 100vh;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+</style>
+
+<div class="container-fluid">
+    <!-- Cabeçalho -->
+    <div class="page-header">
+        <h1 class="page-title">📦 Movimentos de Estoque</h1>
+        <div class="nav-links">
+            <a href="{% url 'estoque:movimento_create' %}" class="nav-link">+ Novo Movimento</a>
+            <a href="{% url 'estoque:dashboard' %}" class="nav-link">📊 Dashboard</a>
+        </div>
+    </div>
+
+    <!-- Tabela de Movimentos -->
+    <div class="card">
+        <div class="card-header">Movimentos Recentes</div>
+        <div style="overflow-x: auto;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Produto</th>
+                        <th>Tipo</th>
+                        <th style="text-align: right;">Quantidade</th>
+                        <th>Observação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in movimentos %}
+                        <tr>
+                            <td>{{ m.data_movimento|date:"d/m/Y" }}</td>
+                            <td><strong>{{ m.produto.nome }}</strong></td>
+                            <td>
+                                <span class="badge {% if m.tipo == 'ENTRADA' %}badge-entrada{% elif m.tipo == 'SAIDA' %}badge-saida{% else %}badge-ajuste{% endif %}">
+                                    {{ m.tipo }}
+                                </span>
+                            </td>
+                            <td style="text-align: right;"><strong>{{ m.quantidade }}</strong></td>
+                            <td class="text-muted">{{ m.observacao|default:"—" }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5">
+                                <div class="no-data">
+                                    <div style="font-size: 48px; margin-bottom: 12px;">📭</div>
+                                    <div>Nenhum movimento encontrado</div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Paginação -->
+    {% if is_paginated %}
+        <div class="pagination-wrapper">
+            <div>
+                <strong>{{ page_obj.paginator.count }}</strong> movimentos | 
+                Página <strong>{{ page_obj.number }}</strong> de <strong>{{ page_obj.paginator.num_pages }}</strong>
+            </div>
+            <nav>
+                <ul class="pagination">
+                    {% if page_obj.has_previous %}
+                        <li><a class="page-link" href="?page=1{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}">⏮</a></li>
+                        <li><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}">◀</a></li>
+                    {% endif %}
+
+                    <li><span class="page-link active">{{ page_obj.number }}</span></li>
+
+                    {% if page_obj.has_next %}
+                        <li><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}">▶</a></li>
+                        <li><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}">⏭</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

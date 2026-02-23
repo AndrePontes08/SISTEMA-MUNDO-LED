@@ -1,0 +1,42 @@
+from __future__ import annotations
+
+from django import forms
+from django.utils import timezone
+
+from contas.models import ContaAPagar, Categoria, RegraImposto, ProjecaoMensal
+
+
+class ContaAPagarForm(forms.ModelForm):
+    class Meta:
+        model = ContaAPagar
+        fields = [
+            "vencimento",
+            "descricao",
+            "centro_custo",
+            "categoria",
+            "fornecedor",
+            "valor",
+            "comprovante",
+            "exige_comprovante",
+            "observacoes",
+        ]
+        widgets = {
+            "vencimento": forms.DateInput(attrs={"type": "date"}),
+            "observacoes": forms.Textarea(attrs={"rows": 3}),
+        }
+
+
+class ConfirmarPagamentoForm(forms.Form):
+    """
+    Usado só para confirmar; o arquivo pode ser anexado aqui também.
+    """
+    comprovante = forms.FileField(required=False)
+
+
+class ImportCSVForm(forms.Form):
+    arquivo = forms.FileField()
+    exige_comprovante_padrao = forms.BooleanField(
+        required=False,
+        initial=False,
+        help_text="Para base inicial importada, mantenha desmarcado (permite marcar como paga sem comprovante).",
+    )

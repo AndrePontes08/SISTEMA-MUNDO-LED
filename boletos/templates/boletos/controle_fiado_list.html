@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Controle de Fiado{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1>💳 Controle de Fiado</h1>
+            <p class="text-muted">Gerenciamento de créditos concedidos aos clientes</p>
+        </div>
+    </div>
+
+    <!-- Menu de Navegação -->
+    <div class="card mb-4">
+        <div class="card-body p-2">
+            <div class="btn-group w-100" role="group">
+                <a href="{% url 'boletos:boleto_list' %}" class="btn btn-outline-primary">📄 Boletos</a>
+                <a href="{% url 'boletos:cliente_list' %}" class="btn btn-outline-primary">👥 Clientes</a>
+                <a href="{% url 'boletos:controle_fiado_list' %}" class="btn btn-outline-primary active">💳 Fiados</a>
+                <a href="{% url 'boletos:lista_negra' %}" class="btn btn-outline-primary">⛔ Lista Negra</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Limite</th>
+                        <th>Utilizando</th>
+                        <th>Disponível</th>
+                        <th>% Utilizado</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for controle in controles %}
+                        <tr>
+                            <td><strong>{{ controle.cliente.nome }}</strong></td>
+                            <td>R$ {{ controle.limite_credito|floatformat:2 }}</td>
+                            <td>
+                                <span class="badge bg-{% if controle.percentual_utilizado|floatformat:0|add:0 > 80 %}danger{% elif controle.percentual_utilizado|floatformat:0|add:0 > 50 %}warning{% else %}success{% endif %} {# pyright: ignore #}">
+                                    R$ {{ controle.saldo_fiado|floatformat:2 }}
+                                </span>
+                            </td>
+                            <td>R$ {{ controle.saldo_disponivel|floatformat:2 }}</td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-{% if controle.percentual_utilizado|floatformat:0|add:0 > 80 %}danger{% elif controle.percentual_utilizado|floatformat:0|add:0 > 50 %}warning{% else %}success{% endif %} {# pyright: ignore #}" 
+                                         style="width: {{ controle.percentual_utilizado|floatformat:1 }}%">
+                                        {{ controle.percentual_utilizado|floatformat:0 }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if controle.status == 'BLOQUEADO' %}danger{% elif controle.status == 'ATIVO' %}success{% else %}secondary{% endif %}">
+                                    {{ controle.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'boletos:cliente_detail' controle.cliente.pk %}" class="btn btn-sm btn-info" title="Ver Cliente">👁️</a>
+                                <a href="{% url 'boletos:controle_fiado_update' controle.pk %}" class="btn btn-sm btn-warning" title="Editar">✏️</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                Nenhum controle de fiado registrado
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Paginação -->
+    {% if is_paginated %}
+        <div class="card mt-4">
+            <div class="card-body">
+                <div class="row align-items-center mb-3">
+                    <div class="col-md-6">
+                        <p class="mb-0 text-muted">
+                            Mostrando página <strong>{{ page_obj.number }}</strong> de <strong>{{ page_obj.paginator.num_pages }}</strong> 
+                            | Total de <strong>{{ page_obj.paginator.count }}</strong> itens
+                        </p>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <form method="get" class="d-inline">
+                            <label for="page_size" class="form-label me-2">Itens por página:</label>
+                            <select id="page_size" name="page_size" class="form-select d-inline" style="width: auto;" onchange="this.form.submit()">
+                                <option value="20" {% if request.GET.page_size == '20' or not request.GET.page_size %}selected{% endif %}>20</option>
+                                <option value="40" {% if request.GET.page_size == '40' %}selected{% endif %}>40</option>
+                                <option value="60" {% if request.GET.page_size == '60' %}selected{% endif %}>60</option>
+                            </select>
+                            <!-- Manter filtros ativos -->
+                            {% if request.GET.status %}<input type="hidden" name="status" value="{{ request.GET.status }}">{% endif %}
+                            {% if request.GET.cliente %}<input type="hidden" name="cliente" value="{{ request.GET.cliente }}">{% endif %}
+                        </form>
+                    </div>
+                </div>
+                <nav aria-label="Paginação">
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.cliente %}&cliente={{ request.GET.cliente }}{% endif %}">Primeira</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.cliente %}&cliente={{ request.GET.cliente }}{% endif %}">Anterior</a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_obj.number }}</span>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.cliente %}&cliente={{ request.GET.cliente }}{% endif %}">Próxima</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.cliente %}&cliente={{ request.GET.cliente }}{% endif %}">Última</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

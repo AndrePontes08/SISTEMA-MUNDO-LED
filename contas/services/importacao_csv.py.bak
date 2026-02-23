@@ -1,0 +1,144 @@
+from __future__ import annotations
+
+import csv
+import re
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import IO, List, Optional
+
+from django.db import transaction
+from django.utils.dateparse import parse_date
+
+from compras.models import Fornecedor
+from contas.models import ContaAPagar, Categoria, CentroCustoChoices
+from core.services.normalizacao import normalizar_nome
+
+
+_DATE_RE = re.compile(r"^\s*\d{2}/\d{2}/\d{4}\s*$")
+_BRL_RE = re.compile(r"R\$\s*[\d\.\s]+\,\d{2}")
+
+
+def parse_brl_to_decimal(text: str) -> Optional[Decimal]:
+    if not text:
+        return None
+    m = _BRL_RE.search(str(text))
+    if not m:
+        return None
+    s = m.group(0)
+    s = s.replace("R$", "").strip()
+    s = s.replace(".", "").replace(" ", "")
+    s = s.replace(",", ".")
+    try:
+        return Decimal(s).quantize(Decimal("0.01"))
+    except Exception:
+        return None
+
+
+def parse_ddmmyyyy(text: str):
+    """
+    Converte dd/mm/yyyy para date.
+    """
+    if not text:
+        return None
+    t = str(text).strip()
+    if not _DATE_RE.match(t):
+        return None
+    dd, mm, yyyy = t.split("/")
+    iso = f"{yyyy}-{mm}-{dd}"
+    return parse_date(iso)
+
+
+def get_or_create_categoria_default() -> Categoria:
+    """
+    Import inicial: se não houver categoria no CSV, usamos 'GERAL'.
+    Você pode editar depois.
+    """
+    obj, _ = Categoria.objects.get_or_create(nome="GERAL")
+    return obj
+
+
+@transaction.atomic
+def import_contas_csv(file: IO[str], *, fonte: str = "CSV", exige_comprovante_padrao: bool = False) -> dict:
+    """
+    Importador robusto para CSV "quebrado" (como o seu):
+    - Identifica linhas com data dd/mm/yyyy
+    - Pega descrição, centro de custo e o primeiro valor BRL encontrado na linha
+    - Restante vira observação
+
+    Mapeamento esperado (como no seu arquivo):
+      col0: data
+      col1: descricao
+      col2: centro_custo
+      col3: valor (R$ ...)
+      col4..: extras (obs, outros valores, etc)
+    Mas também funciona se vier com nomes "Unnamed".
+    """
+    reader = csv.reader(file)
+    categoria_default = get_or_create_categoria_default()
+
+    criados = 0
+    erros: List[str] = []
+
+    for idx, row in enumerate(reader, start=1):
+        try:
+            if not row or all((str(c).strip() == "" for c in row)):
+                continue
+
+            # Remove colunas vazias do fim
+            while row and str(row[-1]).strip() == "":
+                row.pop()
+
+            data = parse_ddmmyyyy(row[0] if len(row) > 0 else "")
+            if not data:
+                # ignora cabeçalhos/linhas não-dados
+                continue
+
+            descricao = (row[1] if len(row) > 1 else "").strip()
+            centro = (row[2] if len(row) > 2 else "").strip()
+
+            # normaliza centro (alguns CSV vêm com espaços)
+            centro = centro.replace("  ", " ").strip()
+            if centro not in CentroCustoChoices.values:
+                # tenta corrigir: "FM " -> "FM"
+                centro = centro.strip()
+            if centro not in CentroCustoChoices.values:
+                centro = CentroCustoChoices.OUTROS
+
+            # valor: primeiro BRL em qualquer coluna
+            valor = None
+            for c in row:
+                v = parse_brl_to_decimal(str(c))
+                if v is not None:
+                    valor = v
+                    break
+            if valor is None:
+                raise ValueError("Valor BRL não encontrado na linha.")
+
+            extras = []
+            if len(row) > 3:
+                extras = [str(c).strip() for c in row[3:] if str(c).strip()]
+
+            observacoes = " | ".join(extras[:10])  # limita tamanho
+            if len(observacoes) > 5000:
+                observacoes = observacoes[:5000]
+
+            ContaAPagar.objects.create(
+                vencimento=data,
+                descricao=descricao[:255] if descricao else "SEM DESCRICAO",
+                centro_custo=centro,
+                categoria=categoria_default,
+                fornecedor=None,
+                valor=valor,
+                status="ABERTA",
+                exige_comprovante=exige_comprovante_padrao,  # IMPORTADOS: default False
+                importado=True,
+                fonte_importacao=fonte,
+                linha_importacao=idx,
+                observacoes=observacoes,
+            )
+            criados += 1
+
+        except Exception as e:
+            erros.append(f"Linha {idx}: {e}")
+
+    return {"criados": criados, "erros": erros}

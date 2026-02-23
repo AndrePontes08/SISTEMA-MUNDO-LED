@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Importar PDF Caixa{% endblock %}
+{% block page_title %}Importar Relatorio Caixa Analitico{% endblock %}
+{% block content %}
+<style>
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06);margin-bottom:12px}
+  .btn{display:inline-block;padding:9px 13px;border-radius:10px;background:#0f172a;color:#fff;text-decoration:none;border:none;cursor:pointer}
+  .drop{border:2px dashed #94a3b8;border-radius:12px;padding:24px;text-align:center;background:#f8fafc}
+</style>
+
+<div class="card">
+  <h2>Upload de PDF Softcom</h2>
+  <p>Importa vendas do dia e gera baixa de estoque por unidade sem alterar fluxos existentes.</p>
+  <p>
+    <a class="btn" href="{% url 'importadores:caixa_importacoes' %}">Historico de importacoes</a>
+  </p>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="drop" id="drop-zone">
+      <p><strong>Arraste o PDF aqui</strong> ou clique para selecionar.</p>
+      {{ form.arquivo_pdf }}
+    </div>
+    <p id="file-status" style="margin-top:8px;color:#475569;">Nenhum arquivo selecionado.</p>
+    <p style="margin-top:10px">{{ form.data_referencia_override.label_tag }} {{ form.data_referencia_override }}</p>
+    <p style="margin-top:10px">{{ form.unidade_override.label_tag }} {{ form.unidade_override }}</p>
+    <button class="btn" id="btn-upload" type="submit">Importar PDF</button>
+  </form>
+</div>
+
+<script>
+  (function () {
+    const zone = document.getElementById("drop-zone");
+    const input = zone.querySelector("input[type='file']");
+    const status = document.getElementById("file-status");
+    const form = zone.closest("form");
+    const btn = document.getElementById("btn-upload");
+    input.style.display = "none";
+
+    function updateStatus() {
+      if (input.files && input.files.length > 0) {
+        status.textContent = "Arquivo carregado: " + input.files[0].name;
+        status.style.color = "#166534";
+      } else {
+        status.textContent = "Nenhum arquivo selecionado.";
+        status.style.color = "#475569";
+      }
+    }
+
+    zone.addEventListener("click", () => input.click());
+    zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.style.borderColor = "#2563eb"; });
+    zone.addEventListener("dragleave", () => { zone.style.borderColor = "#94a3b8"; });
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      zone.style.borderColor = "#94a3b8";
+      if (e.dataTransfer.files.length) {
+        input.files = e.dataTransfer.files;
+        updateStatus();
+      }
+    });
+    input.addEventListener("change", updateStatus);
+    form.addEventListener("submit", () => {
+      btn.disabled = true;
+      btn.textContent = "Carregando...";
+      btn.style.opacity = "0.7";
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Importar Boletos Vencidos{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <h1>Importar boletos vencidos (CSV)</h1>
+  <div class="card mt-3">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="mb-3">
+        {{ form.arquivo.label_tag }}<br>
+        {{ form.arquivo }}
+      </div>
+      <div class="mb-3">
+        {{ form.banco.label_tag }}<br>
+        {{ form.banco }}
+      </div>
+      <button class="btn btn-primary">Importar</button>
+      <a class="btn btn-secondary" href="{% url 'boletos:boleto_list' %}">Voltar</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

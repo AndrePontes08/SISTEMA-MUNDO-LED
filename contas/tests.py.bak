@@ -1,0 +1,37 @@
+from __future__ import annotations
+
+from decimal import Decimal
+from django.test import TestCase
+from django.utils import timezone
+
+from contas.models import Categoria, ContaAPagar, StatusConta
+from contas.services.pagamento_service import confirmar_pagamento
+from contas.services.importacao_csv import import_contas_csv
+
+import io
+
+
+class ContasRegrasTest(TestCase):
+    def setUp(self):
+        self.cat = Categoria.objects.create(nome="GERAL")
+
+    def test_nao_confirma_sem_comprovante_quando_exige(self):
+        conta = ContaAPagar.objects.create(
+            vencimento=timezone.localdate(),
+            descricao="Conta teste",
+            centro_custo="FM",
+            categoria=self.cat,
+            valor=Decimal("100.00"),
+            exige_comprovante=True,
+            importado=False,
+        )
+        with self.assertRaises(ValueError):
+            confirmar_pagamento(conta)
+
+    def test_import_csv_cria_contas(self):
+        # Simula uma linha no seu padrão: data, descricao, centro, valor
+        csv_text = "PROGRAMAÇÃO DE CONTAS A PAGAR,,,,\n10/01/2023,CHEQUE NIVALDO 238,FM,R$ 1.900,00\n"
+        # Nota: o valor no seu arquivo pode vir com vírgula separando; aqui mantemos formato próximo
+        f = io.StringIO(csv_text)
+        result = import_contas_csv(f, fonte="TEST", exige_comprovante_padrao=False)
+        self.assertGreaterEqual(result["criados"], 1)

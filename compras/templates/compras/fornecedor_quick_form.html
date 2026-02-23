@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Novo Fornecedor{% endblock %}
+{% block page_title %}Novo Fornecedor{% endblock %}
+{% block content %}
+<style>
+  .card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 10px rgba(0,0,0,.06); max-width:720px; }
+  label { display:block; margin-top:10px; font-size:14px; color:#374151; }
+  input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; margin-top:6px; }
+  .btn { display:inline-block; padding:8px 12px; border-radius:10px; background:#111827; color:#fff; text-decoration:none; border:none; cursor:pointer; }
+  .btn-secondary { background:#374151; }
+</style>
+<div class="card">
+  <form method="post">
+    {% csrf_token %}
+    <label>Nome</label>{{ form.nome }}{{ form.nome.errors }}
+    <label>CNPJ</label>{{ form.cnpj }}{{ form.cnpj.errors }}
+    <label>Numero para contato</label>{{ form.telefone_contato }}{{ form.telefone_contato.errors }}
+    <label>Representante comercial responsavel</label>{{ form.representante_comercial }}{{ form.representante_comercial.errors }}
+    <label>Contato do representante</label>{{ form.contato_representante }}{{ form.contato_representante.errors }}
+    <div style="margin-top:14px; display:flex; gap:10px;">
+      <button class="btn" type="submit">Salvar</button>
+      <a class="btn btn-secondary" href="{% url 'compras:compra_create' %}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

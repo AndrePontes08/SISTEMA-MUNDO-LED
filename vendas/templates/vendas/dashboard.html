@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard de Vendas{% endblock %}
+{% block page_title %}Dashboard de Vendas{% endblock %}
+
+{% block content %}
+<div class="card">
+  <form method="get" style="margin-bottom:12px;display:flex;gap:8px;align-items:center;">
+    <label for="periodo">Periodo (dias)</label>
+    <input id="periodo" type="number" min="1" name="periodo" value="{{ request.GET.periodo|default:'30' }}">
+    <button class="btn" type="submit">Atualizar</button>
+  </form>
+  <div class="grid">
+    <div class="tile"><strong>Total faturado</strong><br>R$ {{ dashboard.total_faturado }}</div>
+    <div class="tile"><strong>Vendas faturadas</strong><br>{{ dashboard.total_vendas_faturadas }}</div>
+    <div class="tile"><strong>Ticket medio</strong><br>R$ {{ dashboard.ticket_medio }}</div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:12px;">
+  <h2>Top produtos</h2>
+  <ul>
+    {% for item in dashboard.top_produtos %}
+      <li>{{ item.itens__produto__nome }} - qtd {{ item.quantidade }} - R$ {{ item.total }}</li>
+    {% empty %}
+      <li>Sem dados no periodo.</li>
+    {% endfor %}
+  </ul>
+</div>
+
+<div class="card" style="margin-top:12px;">
+  <h2>Top clientes</h2>
+  <ul>
+    {% for item in dashboard.top_clientes %}
+      <li>{{ item.cliente__nome }} - {{ item.vendas }} venda(s) - R$ {{ item.total }}</li>
+    {% empty %}
+      <li>Sem dados no periodo.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}
+
