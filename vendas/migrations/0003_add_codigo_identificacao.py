@@ -21,13 +21,12 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="venda",
             name="codigo_identificacao",
-            field=models.CharField(blank=True, db_index=True, default="", max_length=20),
+            field=models.CharField(blank=True, default="", max_length=20),
         ),
         migrations.RunPython(preencher_codigos, migrations.RunPython.noop),
         migrations.AlterField(
             model_name="venda",
             name="codigo_identificacao",
-            field=models.CharField(blank=True, db_index=True, default="", max_length=20, unique=True),
+            field=models.CharField(blank=True, default="", max_length=20, unique=True),
         ),
     ]
-

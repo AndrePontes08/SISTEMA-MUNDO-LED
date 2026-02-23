@@ -62,7 +62,7 @@ class Venda(models.Model):
         default=StatusVendaChoices.RASCUNHO,
         db_index=True,
     )
-    codigo_identificacao = models.CharField(max_length=20, blank=True, default="", db_index=True, unique=True)
+    codigo_identificacao = models.CharField(max_length=20, blank=True, default="", unique=True)
     tipo_documento = models.CharField(
         max_length=15,
         choices=TipoDocumentoVendaChoices.choices,
