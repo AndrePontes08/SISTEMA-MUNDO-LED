@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: erp9-web
+    name: sistema-gerencial-mundo-led
     env: python
     plan: starter
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
@@ -18,17 +18,17 @@ services:
         generateValue: true
       - key: DATABASE_URL
         fromDatabase:
-          name: erp9-db
+          name: sistema-gerencial-mundo-led-db
           property: connectionString
       - key: DJANGO_ALLOWED_HOSTS
         sync: false
-        value: seu-app.onrender.com
+        value: sistema-gerencial-mundo-led.onrender.com
       - key: CSRF_TRUSTED_ORIGINS
         sync: false
-        value: https://seu-app.onrender.com
+        value: https://sistema-gerencial-mundo-led.onrender.com
 
 databases:
-  - name: erp9-db
-    databaseName: erp9
-    user: erp9_user
+  - name: sistema-gerencial-mundo-led-db
+    databaseName: sistema_gerencial_mundo_led
+    user: sistema_gerencial_mundo_led_user
     plan: starter
