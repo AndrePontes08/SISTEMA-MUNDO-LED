@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load formatters %}
+
+{% block title %}Fechamento de Caixa{% endblock %}
+{% block page_title %}Fechamento de Caixa Diário{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Gerar fechamento diário</h2>
+  <form method="post" action="{% url 'vendas:fechamento_caixa_gerar' %}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px;">
+    {% csrf_token %}
+    <div>
+      <label for="{{ form.data_referencia.id_for_label }}">Data de referência</label>
+      {{ form.data_referencia }}
+    </div>
+    <div style="grid-column:1 / -1;">
+      <label for="{{ form.observacoes.id_for_label }}">Observações</label>
+      {{ form.observacoes }}
+    </div>
+    <div style="grid-column:1 / -1;">
+      <button class="btn" type="submit">Gerar fechamento e PDF</button>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="margin-top:12px;">
+  <h2>Histórico de fechamentos</h2>
+  <form method="get" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:10px 0;">
+    <div>
+      <label for="id_data_referencia_filtro">Filtrar por data</label>
+      <input id="id_data_referencia_filtro" type="date" name="data_referencia" value="{{ request.GET.data_referencia }}">
+    </div>
+    <button class="btn" type="submit">Filtrar</button>
+    <a class="btn" href="{% url 'vendas:fechamento_caixa_list' %}">Limpar</a>
+  </form>
+
+  <table style="width:100%;border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Data</th>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Vendas</th>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Receita</th>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Descontos</th>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Gerado por</th>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Gerado em</th>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for fechamento in fechamentos %}
+        <tr>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ fechamento.data_referencia|date:"d/m/Y" }}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ fechamento.total_vendas }}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ fechamento.total_receita|br_currency }}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ fechamento.total_descontos|br_currency }}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{% if fechamento.criado_por %}{{ fechamento.criado_por.username }}{% else %}-{% endif %}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ fechamento.criado_em|date:"d/m/Y H:i" }}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+            <a class="btn" href="{% url 'vendas:fechamento_caixa_pdf' fechamento.pk %}">Baixar PDF</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" style="padding:10px;">Nenhum fechamento encontrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if is_paginated %}
+    <div style="margin-top:12px;">
+      {% if page_obj.has_previous %}
+        <a class="btn" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>
+      {% endif %}
+      <span style="margin:0 8px;">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a class="btn" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Próxima</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

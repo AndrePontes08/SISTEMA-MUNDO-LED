@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% load formatters %}
 
-{% block title %}Relatorios{% endblock %}
-{% block page_title %}Relatorios Gerenciais{% endblock %}
+{% block title %}Relatórios{% endblock %}
+{% block page_title %}Relatórios Gerenciais{% endblock %}
 
 {% block content %}
 <style>
@@ -16,19 +17,19 @@
 </style>
 
 <div class="kpis">
-  <div class="kpi"><div class="label">Total compras</div><div class="value">R$ {{ kpi_total_compras|floatformat:2 }}</div></div>
-  <div class="kpi"><div class="label">Contas abertas</div><div class="value">R$ {{ kpi_contas_abertas|floatformat:2 }}</div></div>
+  <div class="kpi"><div class="label">Total compras</div><div class="value">{{ kpi_total_compras|br_currency }}</div></div>
+  <div class="kpi"><div class="label">Contas abertas</div><div class="value">{{ kpi_contas_abertas|br_currency }}</div></div>
   <div class="kpi"><div class="label">Boletos abertos</div><div class="value">{{ kpi_boletos_abertos }}</div></div>
-  <div class="kpi"><div class="label">Transferencias 30d</div><div class="value">{{ kpi_transferencias_30d }}</div></div>
+  <div class="kpi"><div class="label">Transferências 30d</div><div class="value">{{ kpi_transferencias_30d }}</div></div>
 </div>
 
 <div class="charts">
-  <div class="card"><h3>Compras por mes (valor)</h3><canvas id="comprasValor"></canvas></div>
-  <div class="card"><h3>Compras por mes (quantidade)</h3><canvas id="comprasQtd"></canvas></div>
+  <div class="card"><h3>Compras por mês (valor)</h3><canvas id="comprasValor"></canvas></div>
+  <div class="card"><h3>Compras por mês (quantidade)</h3><canvas id="comprasQtd"></canvas></div>
   <div class="card"><h3>Contas por status (valor)</h3><canvas id="contasStatus"></canvas></div>
   <div class="card"><h3>Boletos por status (qtd)</h3><canvas id="boletosStatus"></canvas></div>
   <div class="card"><h3>Movimentos de estoque (quantidade)</h3><canvas id="movimentosTipo"></canvas></div>
-  <div class="card"><h3>Transferencias por destino (quantidade)</h3><canvas id="transferDestino"></canvas></div>
+  <div class="card"><h3>Transferências por destino (quantidade)</h3><canvas id="transferDestino"></canvas></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

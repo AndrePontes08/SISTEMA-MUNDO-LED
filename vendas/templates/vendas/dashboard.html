@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load formatters %}
 
 {% block title %}Dashboard de Vendas{% endblock %}
 {% block page_title %}Dashboard de Vendas{% endblock %}
@@ -15,42 +16,42 @@
 </style>
 <div class="card">
   <form method="get" style="margin-bottom:12px;display:flex;gap:8px;align-items:center;">
-    <label for="periodo">Periodo (dias)</label>
+    <label for="periodo">Período (dias)</label>
     <input id="periodo" type="number" min="1" name="periodo" value="{{ request.GET.periodo|default:'30' }}">
     <button class="btn" type="submit">Atualizar</button>
   </form>
   <div class="cards">
-    <div class="card-box"><strong>Periodo selecionado</strong><br>R$ {{ dashboard.total_faturado }}<br><span class="muted">{{ dashboard.total_vendas_faturadas }} vendas | ticket R$ {{ dashboard.ticket_medio }}</span></div>
-    <div class="card-box"><strong>Hoje</strong><br>R$ {{ dashboard.resumo_dia.total_faturado }}<br><span class="muted">{{ dashboard.resumo_dia.total_vendas }} vendas | ticket R$ {{ dashboard.resumo_dia.ticket_medio }}</span></div>
-    <div class="card-box"><strong>Mes</strong><br>R$ {{ dashboard.resumo_mes.total_faturado }}<br><span class="muted">{{ dashboard.resumo_mes.total_vendas }} vendas | ticket R$ {{ dashboard.resumo_mes.ticket_medio }}</span></div>
-    <div class="card-box"><strong>Ano</strong><br>R$ {{ dashboard.resumo_ano.total_faturado }}<br><span class="muted">{{ dashboard.resumo_ano.total_vendas }} vendas | ticket R$ {{ dashboard.resumo_ano.ticket_medio }}</span></div>
+    <div class="card-box"><strong>Período selecionado</strong><br>{{ dashboard.total_faturado|br_currency }}<br><span class="muted">{{ dashboard.total_vendas_faturadas }} vendas | ticket {{ dashboard.ticket_medio|br_currency }}</span></div>
+    <div class="card-box"><strong>Hoje</strong><br>{{ dashboard.resumo_dia.total_faturado|br_currency }}<br><span class="muted">{{ dashboard.resumo_dia.total_vendas }} vendas | ticket {{ dashboard.resumo_dia.ticket_medio|br_currency }}</span></div>
+    <div class="card-box"><strong>Mês</strong><br>{{ dashboard.resumo_mes.total_faturado|br_currency }}<br><span class="muted">{{ dashboard.resumo_mes.total_vendas }} vendas | ticket {{ dashboard.resumo_mes.ticket_medio|br_currency }}</span></div>
+    <div class="card-box"><strong>Ano</strong><br>{{ dashboard.resumo_ano.total_faturado|br_currency }}<br><span class="muted">{{ dashboard.resumo_ano.total_vendas }} vendas | ticket {{ dashboard.resumo_ano.ticket_medio|br_currency }}</span></div>
   </div>
 </div>
 
 <div class="card" style="margin-top:12px;">
-  <h2>Comparativo de faturamento (dia/mes/ano)</h2>
+  <h2>Comparativo de faturamento (dia/mês/ano)</h2>
   <div class="bar-wrap">
     <div class="bar-line">
       <span class="muted">Dia</span>
       <div class="bar-track"><div class="bar-fill" style="width:{% widthratio dashboard.resumo_dia.total_faturado max_periodo 100 %}%"></div></div>
-      <strong>R$ {{ dashboard.resumo_dia.total_faturado }}</strong>
+      <strong>{{ dashboard.resumo_dia.total_faturado|br_currency }}</strong>
     </div>
     <div class="bar-line">
       <span class="muted">Mes</span>
       <div class="bar-track"><div class="bar-fill" style="width:{% widthratio dashboard.resumo_mes.total_faturado max_periodo 100 %}%"></div></div>
-      <strong>R$ {{ dashboard.resumo_mes.total_faturado }}</strong>
+      <strong>{{ dashboard.resumo_mes.total_faturado|br_currency }}</strong>
     </div>
     <div class="bar-line">
       <span class="muted">Ano</span>
       <div class="bar-track"><div class="bar-fill" style="width:{% widthratio dashboard.resumo_ano.total_faturado max_periodo 100 %}%"></div></div>
-      <strong>R$ {{ dashboard.resumo_ano.total_faturado }}</strong>
+      <strong>{{ dashboard.resumo_ano.total_faturado|br_currency }}</strong>
     </div>
   </div>
 </div>
 
 <div class="card" style="margin-top:12px;">
-  <h2>Pico de vendas por horario</h2>
-  <p class="muted">Maior indice: {{ dashboard.pico_horario.hora }}h ({{ dashboard.pico_horario.total }} vendas)</p>
+  <h2>Pico de vendas por horário</h2>
+  <p class="muted">Maior índice: {{ dashboard.pico_horario.hora }}h ({{ dashboard.pico_horario.total }} vendas)</p>
   <div class="bar-wrap">
     {% for row in dashboard.vendas_por_hora %}
       <div class="bar-line">
@@ -65,23 +66,23 @@
 </div>
 
 <div class="card" style="margin-top:12px;">
-  <h2>Top produtos (periodo)</h2>
+  <h2>Top produtos (período)</h2>
   <ul>
     {% for item in dashboard.top_produtos %}
-      <li>{{ item.itens__produto__nome }} - qtd {{ item.quantidade }} - R$ {{ item.total }}</li>
+      <li>{{ item.itens__produto__nome }} - qtd {{ item.quantidade }} - {{ item.total|br_currency }}</li>
     {% empty %}
-      <li>Sem dados no periodo.</li>
+      <li>Sem dados no período.</li>
     {% endfor %}
   </ul>
 </div>
 
 <div class="card" style="margin-top:12px;">
-  <h2>Top clientes (periodo)</h2>
+  <h2>Top clientes (período)</h2>
   <ul>
     {% for item in dashboard.top_clientes %}
-      <li>{{ item.cliente__nome }} - {{ item.vendas }} venda(s) - R$ {{ item.total }}</li>
+      <li>{{ item.cliente__nome }} - {{ item.vendas }} venda(s) - {{ item.total|br_currency }}</li>
     {% empty %}
-      <li>Sem dados no periodo.</li>
+      <li>Sem dados no período.</li>
     {% endfor %}
   </ul>
 </div>

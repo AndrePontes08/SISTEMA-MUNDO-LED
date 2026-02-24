@@ -275,3 +275,36 @@ class VendaBoleto(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["venda", "numero_parcela"], name="uniq_venda_parcela_boleto"),
         ]
+
+
+class FechamentoCaixaDiario(models.Model):
+    """
+    Snapshot diário de fechamento de caixa de vendas.
+    Mantém histórico para reimpressão e auditoria operacional.
+    """
+
+    data_referencia = models.DateField(db_index=True)
+    total_vendas = models.PositiveIntegerField(default=0)
+    total_receita = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    total_descontos = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    totais_por_pagamento = models.JSONField(default=dict, blank=True)
+    observacoes = models.TextField(blank=True, default="")
+    detalhes_json = models.JSONField(default=dict, blank=True)
+    arquivo_pdf = models.BinaryField(blank=True, null=True, editable=False)
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="fechamentos_caixa_vendas",
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-data_referencia", "-id"]
+        indexes = [
+            models.Index(fields=["data_referencia", "criado_em"], name="idx_fechcaixa_data_criado"),
+        ]
+
+    def __str__(self) -> str:
+        return f"Fechamento {self.data_referencia:%d/%m/%Y} #{self.id}"

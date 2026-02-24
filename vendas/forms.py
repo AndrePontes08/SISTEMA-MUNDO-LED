@@ -126,3 +126,15 @@ ItemVendaFormSet = inlineformset_factory(
 
 class CancelarVendaForm(forms.Form):
     motivo = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
+
+
+class FechamentoCaixaForm(forms.Form):
+    data_referencia = forms.DateField(
+        required=True,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        initial=timezone.localdate,
+    )
+    observacoes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )

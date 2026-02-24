@@ -7,7 +7,8 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib import messages
-from django.db.models import Prefetch
+from django.db.models import Count, DecimalField, Prefetch, Sum, Value
+from django.db.models.functions import Coalesce
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -17,9 +18,18 @@ from django.views.generic import CreateView, DetailView, ListView, TemplateView,
 
 from core.services.paginacao import get_pagination_params
 from core.services.permissoes import GroupRequiredMixin
-from vendas.forms import CancelarVendaForm, ItemVendaFormSet, VendaForm
-from vendas.models import ItemVenda, StatusVendaChoices, TipoDocumentoVendaChoices, Venda
+from core.services.formato_brl import format_brl, unit_label
+from vendas.forms import CancelarVendaForm, FechamentoCaixaForm, ItemVendaFormSet, VendaForm
+from vendas.models import (
+    FechamentoCaixaDiario,
+    ItemVenda,
+    StatusVendaChoices,
+    TipoDocumentoVendaChoices,
+    TipoPagamentoChoices,
+    Venda,
+)
 from vendas.services.statistics_service import VendasStatisticsService
+from vendas.services.fechamento_caixa_service import gerar_fechamento_caixa
 from vendas.services.vendas_service import (
     cancelar_venda,
     confirmar_venda,
@@ -100,15 +110,16 @@ def _pdf_business_lines(venda: Venda) -> list[str]:
     ]
     for item in venda.itens.all():
         lines.append(
-            f"- {item.produto.nome} | qtd {item.quantidade} | unit R$ {item.preco_unitario:.2f} | desc R$ {item.desconto:.2f} | subtotal R$ {item.subtotal:.2f}"
+            f"- {item.produto.nome} | qtd {item.quantidade} | unit {format_brl(item.preco_unitario)} | "
+            f"desc {format_brl(item.desconto)} | subtotal {format_brl(item.subtotal)}"
         )
     lines.extend(
         [
             "",
-            f"Subtotal: R$ {venda.subtotal:.2f}",
-            f"Desconto total: R$ {venda.desconto_total:.2f}",
-            f"Acrescimo: R$ {venda.acrescimo:.2f}",
-            f"Total: R$ {venda.total_final:.2f}",
+            f"Subtotal: {format_brl(venda.subtotal)}",
+            f"Desconto total: {format_brl(venda.desconto_total)}",
+            f"Acrescimo: {format_brl(venda.acrescimo)}",
+            f"Total: {format_brl(venda.total_final)}",
             "",
             "CONDICOES COMERCIAIS",
             "1) Valores sujeitos a confirmacao de estoque no faturamento.",
@@ -165,6 +176,7 @@ class VendaListView(VendasAccessMixin, ListView):
         tipo_documento = (self.request.GET.get("tipo_documento") or "").strip()
         cliente = (self.request.GET.get("cliente") or "").strip()
         vendedor = (self.request.GET.get("vendedor") or "").strip()
+        tipo_pagamento = (self.request.GET.get("tipo_pagamento") or "").strip()
         data_inicio = (self.request.GET.get("data_inicio") or "").strip()
         data_fim = (self.request.GET.get("data_fim") or "").strip()
 
@@ -176,6 +188,8 @@ class VendaListView(VendasAccessMixin, ListView):
             qs = qs.filter(cliente__nome__icontains=cliente)
         if vendedor:
             qs = qs.filter(vendedor__username__istartswith=vendedor)
+        if tipo_pagamento:
+            qs = qs.filter(tipo_pagamento=tipo_pagamento)
         if data_inicio:
             qs = qs.filter(data_venda__gte=data_inicio)
         if data_fim:
@@ -186,8 +200,25 @@ class VendaListView(VendasAccessMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         periodo = self.request.GET.get("periodo", "30")
         periodo_dias = int(periodo) if periodo.isdigit() else 30
+        base_filtrada = self.get_queryset()
+        resumo_filtrado = base_filtrada.aggregate(
+            total_vendas=Count("id"),
+            total_final=Coalesce(
+                Sum("total_final"),
+                Value(0, output_field=DecimalField(max_digits=14, decimal_places=2)),
+            ),
+            total_descontos=Coalesce(
+                Sum("desconto_total"),
+                Value(0, output_field=DecimalField(max_digits=14, decimal_places=2)),
+            ),
+        )
+        querydict = self.request.GET.copy()
+        querydict.pop("page", None)
         ctx["status_choices"] = StatusVendaChoices.choices
         ctx["tipo_documento_choices"] = TipoDocumentoVendaChoices.choices
+        ctx["tipo_pagamento_choices"] = TipoPagamentoChoices.choices
+        ctx["resumo_filtrado"] = resumo_filtrado
+        ctx["querystring"] = querydict.urlencode()
         ctx["dashboard"] = VendasStatisticsService.resumo(periodo_dias=periodo_dias)
         return ctx
 
@@ -625,7 +656,7 @@ class VendaPDFView(VendasAccessMixin, View):
                 parcelamento = "A vista"
 
             info_top = y
-            info_bottom = y - 31 * mm
+            info_bottom = y - 37 * mm
             pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
             pdf.roundRect(left, info_bottom, right - left, info_top - info_bottom, 3, fill=0, stroke=1)
             pdf.setFont("Helvetica-Bold", 10)
@@ -635,7 +666,8 @@ class VendaPDFView(VendasAccessMixin, View):
             pdf.drawString(left + 3 * mm, info_top - 12 * mm, f"Tipo: {venda.get_tipo_documento_display()}")
             pdf.drawString(left + 3 * mm, info_top - 18 * mm, f"Cliente: {venda.cliente.nome}")
             pdf.drawString(left + 3 * mm, info_top - 24 * mm, f"Vendedor: {venda.vendedor or '-'}")
-            pdf.drawString(left + 3 * mm, info_top - 30 * mm, f"Data: {venda.data_venda:%d/%m/%Y}  |  Validade: {validade}")
+            pdf.drawString(left + 3 * mm, info_top - 30 * mm, f"Unidade: {unit_label(venda.unidade_saida)}")
+            pdf.drawString(left + 3 * mm, info_top - 36 * mm, f"Data: {venda.data_venda:%d/%m/%Y}  |  Validade: {validade}")
 
             col2 = left + 105 * mm
             pdf.drawString(col2, info_top - 12 * mm, f"Forma pagto: {venda.get_tipo_pagamento_display()}")
@@ -704,9 +736,9 @@ class VendaPDFView(VendasAccessMixin, View):
                 for idx, pline in enumerate(produto_lines):
                     pdf.drawString(x_prod + 1.5, text_y - (idx * 4.7 * mm), pline)
                 pdf.drawRightString(x_unit - 1.2, text_y, str(item.quantidade))
-                pdf.drawRightString(x_desc - 1.2, text_y, f"{item.preco_unitario:.2f}")
-                pdf.drawRightString(x_sub - 1.2, text_y, f"{item.desconto:.2f}")
-                pdf.drawRightString(x_end - 1.5, text_y, f"{item.subtotal:.2f}")
+                pdf.drawRightString(x_desc - 1.2, text_y, format_brl(item.preco_unitario, decimals=2).replace("R$ ", ""))
+                pdf.drawRightString(x_sub - 1.2, text_y, format_brl(item.desconto, decimals=2).replace("R$ ", ""))
+                pdf.drawRightString(x_end - 1.5, text_y, format_brl(item.subtotal, decimals=2).replace("R$ ", ""))
                 y -= current_row_h + 2
 
             y -= 5 * mm
@@ -723,11 +755,11 @@ class VendaPDFView(VendasAccessMixin, View):
             pdf.setFillColor(colors.HexColor("#111827"))
             pdf.drawString(left + 3 * mm, resumo_top - 6 * mm, "Resumo financeiro")
             pdf.setFont("Helvetica", 10)
-            pdf.drawString(left + 3 * mm, resumo_top - 13 * mm, f"Subtotal: R$ {venda.subtotal:.2f}")
-            pdf.drawString(left + 3 * mm, resumo_top - 19 * mm, f"Desconto total: R$ {venda.desconto_total:.2f}")
-            pdf.drawString(left + 3 * mm, resumo_top - 25 * mm, f"Acrescimo: R$ {venda.acrescimo:.2f}")
+            pdf.drawString(left + 3 * mm, resumo_top - 13 * mm, f"Subtotal: {format_brl(venda.subtotal)}")
+            pdf.drawString(left + 3 * mm, resumo_top - 19 * mm, f"Desconto total: {format_brl(venda.desconto_total)}")
+            pdf.drawString(left + 3 * mm, resumo_top - 25 * mm, f"Acrescimo: {format_brl(venda.acrescimo)}")
             pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawRightString(right - 3 * mm, resumo_top - 19 * mm, f"TOTAL: R$ {venda.total_final:.2f}")
+            pdf.drawRightString(right - 3 * mm, resumo_top - 19 * mm, f"TOTAL: {format_brl(venda.total_final)}")
             y = resumo_bottom - 8 * mm
 
             pdf.setFont("Helvetica-Bold", 11)
@@ -840,3 +872,65 @@ class VendasDashboardView(VendasAccessMixin, TemplateView):
         )
         ctx["max_periodo"] = max_periodo if max_periodo > 0 else 1
         return ctx
+
+
+class FechamentoCaixaListView(VendasAccessMixin, ListView):
+    model = FechamentoCaixaDiario
+    template_name = "vendas/fechamento_caixa_list.html"
+    context_object_name = "fechamentos"
+
+    def get_paginate_by(self, queryset):
+        return get_pagination_params(self.request).page_size
+
+    def get_queryset(self):
+        qs = FechamentoCaixaDiario.objects.select_related("criado_por").order_by("-data_referencia", "-id")
+        data_ref = (self.request.GET.get("data_referencia") or "").strip()
+        if data_ref:
+            qs = qs.filter(data_referencia=data_ref)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        data_ref = (self.request.GET.get("data_referencia") or "").strip()
+        ctx["form"] = FechamentoCaixaForm(
+            initial={"data_referencia": data_ref or timezone.localdate()},
+        )
+        querydict = self.request.GET.copy()
+        querydict.pop("page", None)
+        ctx["querystring"] = querydict.urlencode()
+        return ctx
+
+
+class FechamentoCaixaGerarView(VendasAccessMixin, View):
+    def post(self, request, *args, **kwargs):
+        form = FechamentoCaixaForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, "Informe uma data válida para gerar o fechamento de caixa.")
+            return redirect("vendas:fechamento_caixa_list")
+
+        data_referencia = form.cleaned_data["data_referencia"]
+        observacoes = form.cleaned_data.get("observacoes") or ""
+        fechamento = gerar_fechamento_caixa(
+            data_referencia=data_referencia,
+            usuario=request.user,
+            observacoes=observacoes,
+        )
+        messages.success(
+            request,
+            f"Fechamento de caixa de {data_referencia:%d/%m/%Y} gerado com sucesso (ID {fechamento.id}).",
+        )
+        return redirect(f"{reverse('vendas:fechamento_caixa_list')}?data_referencia={data_referencia:%Y-%m-%d}")
+
+
+class FechamentoCaixaPDFView(VendasAccessMixin, View):
+    def get(self, request, *args, **kwargs):
+        fechamento = FechamentoCaixaDiario.objects.get(pk=kwargs["pk"])
+        if not fechamento.arquivo_pdf:
+            messages.error(request, "PDF do fechamento não encontrado.")
+            return redirect("vendas:fechamento_caixa_list")
+        filename = f"fechamento_caixa_{fechamento.data_referencia:%Y%m%d}_{fechamento.id}.pdf"
+        return HttpResponse(
+            bytes(fechamento.arquivo_pdf),
+            content_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )

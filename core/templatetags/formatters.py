@@ -1,49 +1,20 @@
 from django import template
-from decimal import Decimal, InvalidOperation
+
+from core.services.formato_brl import format_brl, format_number_brl, unit_label
 
 register = template.Library()
 
 
 @register.filter(name='br_currency')
 def br_currency(value, decimals=2):
-    """Formata valor para moeda brasileira"""
-    try:
-        if value is None or value == "":
-            return "R$ 0,00"
-        
-        value = Decimal(str(value))
-        
-        if decimals == 0:
-            value = int(round(value))
-            formatted = f"{value:,}".replace(",", ".")
-            return f"R$ {formatted}"
-        
-        formatted = f"{value:,.{decimals}f}"
-        # Converter do padrão americano (1,234.56) para brasileiro (1.234,56)
-        formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
-        return f"R$ {formatted}"
-    except (ValueError, TypeError, InvalidOperation):
-        return "R$ 0,00"
+    """Formata valor para moeda brasileira."""
+    return format_brl(value, decimals=decimals)
 
 
 @register.filter(name='br_number')
 def br_number(value, decimals=2):
-    """Formata número para padrão brasileiro (sem R$)"""
-    try:
-        if value is None or value == "":
-            return "0,00"
-        
-        value = Decimal(str(value))
-        
-        if decimals == 0:
-            value = int(round(value))
-            return f"{value:,}".replace(",", ".")
-        
-        formatted = f"{value:,.{decimals}f}"
-        formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
-        return formatted
-    except (ValueError, TypeError, InvalidOperation):
-        return "0,00"
+    """Formata número para padrão brasileiro (sem R$)."""
+    return format_number_brl(value, decimals=decimals)
 
 
 @register.filter(name='get_item')
@@ -52,3 +23,8 @@ def get_item(dictionary, key):
         return dictionary.get(key)
     return None
 
+
+@register.filter(name="unit_label")
+def unit_label_filter(value):
+    """Converte identificador interno de unidade para rótulo comercial."""
+    return unit_label(value)

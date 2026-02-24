@@ -15,7 +15,17 @@ from estoque.models import EstoqueMovimento, ProdutoEstoque, ProdutoEstoqueUnida
 from estoque.services.estoque_service import registrar_entrada
 from estoque.services.integracao_compras import dar_entrada_por_compra
 from financeiro.models import Recebivel, StatusRecebivelChoices
-from vendas.models import StatusVendaChoices, TipoDocumentoVendaChoices, TipoPagamentoChoices, Venda, VendaEvento, VendaMovimentoEstoque, VendaRecebivel
+from vendas.models import (
+    FechamentoCaixaDiario,
+    StatusVendaChoices,
+    TipoDocumentoVendaChoices,
+    TipoPagamentoChoices,
+    Venda,
+    VendaEvento,
+    VendaMovimentoEstoque,
+    VendaRecebivel,
+)
+from vendas.services.fechamento_caixa_service import gerar_fechamento_caixa
 from vendas.services.vendas_service import (
     ItemVendaPayload,
     cancelar_venda,
@@ -445,3 +455,86 @@ class VendasViewUXTest(TestCase):
         resp = self.client.get(reverse("vendas:venda_pdf", kwargs={"pk": venda.pk}))
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/pdf")
+
+
+class FechamentoCaixaTest(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.gerente = user_model.objects.create_superuser("gerente_fc", "gerente_fc@example.com", "pass")
+        self.cliente = Cliente.objects.create(nome="Cliente Fechamento", cpf_cnpj="11111111111")
+        self.produto = Produto.objects.create(nome="Produto Fechamento", sku="FC-1", ativo=True)
+        registrar_entrada(produto=self.produto, quantidade=Decimal("30.000"))
+
+        venda = criar_venda_com_itens(
+            cliente=self.cliente,
+            vendedor=self.gerente,
+            data_venda=timezone.localdate(),
+            tipo_pagamento=TipoPagamentoChoices.PIX,
+            numero_parcelas=1,
+            intervalo_parcelas_dias=30,
+            acrescimo=Decimal("0.00"),
+            observacoes="",
+            itens=[
+                ItemVendaPayload(
+                    produto=self.produto,
+                    quantidade=Decimal("2.000"),
+                    preco_unitario=Decimal("50.00"),
+                    desconto=Decimal("10.00"),
+                )
+            ],
+        )
+        venda.status = StatusVendaChoices.CONFIRMADA
+        venda.save(update_fields=["status"])
+        faturar_venda(venda, self.gerente)
+
+    def test_gerar_fechamento_caixa_com_pdf(self):
+        fechamento = gerar_fechamento_caixa(
+            data_referencia=timezone.localdate(),
+            usuario=self.gerente,
+            observacoes="Fechamento teste",
+        )
+        self.assertIsNotNone(fechamento.pk)
+        self.assertGreater(fechamento.total_vendas, 0)
+        self.assertTrue(bool(fechamento.arquivo_pdf))
+
+    def test_tela_fechamento_lista_e_baixa_pdf(self):
+        fechamento = gerar_fechamento_caixa(
+            data_referencia=timezone.localdate(),
+            usuario=self.gerente,
+            observacoes="Fechamento teste 2",
+        )
+        self.client.force_login(self.gerente)
+        resp_list = self.client.get(reverse("vendas:fechamento_caixa_list"))
+        self.assertEqual(resp_list.status_code, 200)
+        self.assertContains(resp_list, "Histórico de fechamentos")
+
+        resp_pdf = self.client.get(reverse("vendas:fechamento_caixa_pdf", kwargs={"pk": fechamento.pk}))
+        self.assertEqual(resp_pdf.status_code, 200)
+        self.assertEqual(resp_pdf["Content-Type"], "application/pdf")
+
+    def test_historico_filtra_por_forma_pagamento(self):
+        venda_credito = criar_venda_com_itens(
+            cliente=self.cliente,
+            vendedor=self.gerente,
+            data_venda=timezone.localdate(),
+            tipo_pagamento=TipoPagamentoChoices.CREDITO,
+            numero_parcelas=1,
+            intervalo_parcelas_dias=30,
+            acrescimo=Decimal("0.00"),
+            observacoes="venda no crédito",
+            itens=[
+                ItemVendaPayload(
+                    produto=self.produto,
+                    quantidade=Decimal("1.000"),
+                    preco_unitario=Decimal("40.00"),
+                    desconto=Decimal("0.00"),
+                )
+            ],
+        )
+        venda_credito.status = StatusVendaChoices.FATURADA
+        venda_credito.save(update_fields=["status"])
+
+        self.client.force_login(self.gerente)
+        resp = self.client.get(reverse("vendas:venda_historico"), {"tipo_pagamento": TipoPagamentoChoices.CREDITO})
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "CREDITO")

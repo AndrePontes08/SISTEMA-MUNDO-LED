@@ -1,18 +1,19 @@
 {% extends "base.html" %}
+{% load formatters %}
 
 {% block title %}{{ venda.codigo_identificacao }}{% endblock %}
 {% block page_title %}{{ venda.codigo_identificacao }}{% endblock %}
 
 {% block content %}
 <div class="card">
-  <p><strong>Codigo:</strong> {{ venda.codigo_identificacao }}</p>
+  <p><strong>Código:</strong> {{ venda.codigo_identificacao }}</p>
   <p><strong>Cliente:</strong> {{ venda.cliente.nome }}</p>
   <p><strong>Data:</strong> {{ venda.data_venda|date:"d/m/Y" }}</p>
-  <p><strong>Unidade de saida:</strong> {{ venda.get_unidade_saida_display }}</p>
+  <p><strong>Unidade de saída:</strong> {{ venda.unidade_saida|unit_label }}</p>
   <p><strong>Tipo:</strong> {{ venda.get_tipo_documento_display }}</p>
   <p><strong>Status:</strong> {{ venda.get_status_display }}</p>
   <p><strong>Pagamento:</strong> {{ venda.get_tipo_pagamento_display }}</p>
-  <p><strong>Total:</strong> R$ {{ venda.total_final }}</p>
+  <p><strong>Total:</strong> {{ venda.total_final|br_currency }}</p>
 
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0;">
     <a class="btn" href="{% url 'vendas:venda_pdf' venda.pk %}">Imprimir PDF</a>
@@ -52,7 +53,7 @@
       <tr>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Produto</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Qtd</th>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Unitario</th>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Unitário</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Desconto</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Subtotal</th>
       </tr>
@@ -62,9 +63,9 @@
       <tr>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.produto.nome }}</td>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.quantidade }}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.preco_unitario }}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.desconto }}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.subtotal }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.preco_unitario|br_currency }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.desconto|br_currency }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.subtotal|br_currency }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -72,7 +73,7 @@
 </div>
 
 <div class="card" style="margin-top:12px;">
-  <h2>Historico</h2>
+  <h2>Histórico</h2>
   <ul>
     {% for evento in venda.eventos.all %}
       <li>{{ evento.criado_em|date:"d/m/Y H:i" }} - {{ evento.get_tipo_display }} - {{ evento.detalhe }}</li>
@@ -86,7 +87,7 @@
   <h2>Financeiro</h2>
   <ul>
     {% for link in venda.recebiveis.all %}
-      <li>Parcela {{ link.numero_parcela }} - R$ {{ link.valor }} - {{ link.recebivel.status }} - {{ link.data_vencimento|date:"d/m/Y" }}</li>
+      <li>Parcela {{ link.numero_parcela }} - {{ link.valor|br_currency }} - {{ link.recebivel.status }} - {{ link.data_vencimento|date:"d/m/Y" }}</li>
     {% empty %}
       <li>Sem recebiveis.</li>
     {% endfor %}
@@ -97,7 +98,7 @@
   <h2>Boletos</h2>
   <ul>
     {% for link in venda.boletos.all %}
-      <li>{{ link.boleto.numero_boleto }} - {{ link.boleto.status }} - R$ {{ link.boleto.valor }}</li>
+      <li>{{ link.boleto.numero_boleto }} - {{ link.boleto.status }} - {{ link.boleto.valor|br_currency }}</li>
     {% empty %}
       <li>Sem boletos.</li>
     {% endfor %}
