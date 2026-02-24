@@ -49,7 +49,7 @@ def _build_simple_pdf(lines: list[str]) -> bytes:
 def _payload_dia(data_referencia) -> dict[str, Any]:
     vendas_qs = (
         Venda.objects.select_related("cliente", "vendedor")
-        .prefetch_related("itens__produto")
+        .prefetch_related("itens__produto", "pagamentos")
         .filter(
             data_venda=data_referencia,
             tipo_documento=TipoDocumentoVendaChoices.VENDA,
@@ -67,8 +67,14 @@ def _payload_dia(data_referencia) -> dict[str, Any]:
     for venda in vendas:
         total_receita += venda.total_final or Decimal("0.00")
         total_descontos += venda.desconto_total or Decimal("0.00")
-        label_pagto = payment_label(venda.tipo_pagamento)
-        totais_pagamento[label_pagto] = totais_pagamento.get(label_pagto, Decimal("0.00")) + (venda.total_final or Decimal("0.00"))
+        pagamentos_venda = list(venda.pagamentos.all())
+        if pagamentos_venda:
+            for pagamento in pagamentos_venda:
+                label_pagto = payment_label(pagamento.tipo_pagamento)
+                totais_pagamento[label_pagto] = totais_pagamento.get(label_pagto, Decimal("0.00")) + (pagamento.valor or Decimal("0.00"))
+        else:
+            label_pagto = payment_label(venda.tipo_pagamento)
+            totais_pagamento[label_pagto] = totais_pagamento.get(label_pagto, Decimal("0.00")) + (venda.total_final or Decimal("0.00"))
 
         itens = []
         for item in venda.itens.all():
@@ -89,7 +95,13 @@ def _payload_dia(data_referencia) -> dict[str, Any]:
                 "cliente": venda.cliente.nome,
                 "vendedor": venda.vendedor.username if venda.vendedor else "-",
                 "unidade": unit_label(venda.unidade_saida),
-                "pagamento": label_pagto,
+                "pagamentos": [
+                    {
+                        "tipo_pagamento": payment_label(p.tipo_pagamento),
+                        "valor": str(p.valor or Decimal("0.00")),
+                    }
+                    for p in pagamentos_venda
+                ],
                 "status": venda.get_status_display(),
                 "desconto_total": str(venda.desconto_total or Decimal("0.00")),
                 "total_final": str(venda.total_final or Decimal("0.00")),
@@ -121,6 +133,26 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
         width, height = A4
         left = 12 * mm
         right = width - 12 * mm
+
+        def wrap_text(text: str, max_width: float, font_name: str = "Helvetica", font_size: int = 9) -> list[str]:
+            text = (text or "").strip()
+            if not text:
+                return ["-"]
+            pdf.setFont(font_name, font_size)
+            words = text.split()
+            lines: list[str] = []
+            current = ""
+            for word in words:
+                candidate = word if not current else f"{current} {word}"
+                if pdf.stringWidth(candidate, font_name, font_size) <= max_width:
+                    current = candidate
+                else:
+                    if current:
+                        lines.append(current)
+                    current = word
+            if current:
+                lines.append(current)
+            return lines or ["-"]
         logo_candidates = [
             settings.BASE_DIR / "core" / "static" / "core" / "img" / "logo_mundo_led.png",
             settings.BASE_DIR / "core" / "static" / "core" / "img" / "logo.jpg",
@@ -163,7 +195,9 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
 
         # Bloco de resumo do dia
         resumo_top = y
-        resumo_bottom = y - 28 * mm
+        pay_rows = list(payload["totais_por_pagamento"].items())
+        resumo_h = max(34, 23 + (len(pay_rows) * 5))
+        resumo_bottom = y - resumo_h * mm
         pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
         pdf.roundRect(left, resumo_bottom, right - left, resumo_top - resumo_bottom, 3, fill=0, stroke=1)
         pdf.setFont("Helvetica-Bold", 11)
@@ -175,9 +209,14 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
         pdf.drawRightString(right - 3 * mm, resumo_top - 13 * mm, f"Receita total: {format_brl(payload['total_receita'])}")
         pdf.setFont("Helvetica-Bold", 10)
         pdf.drawString(left + 3 * mm, resumo_top - 25 * mm, "Total por forma de pagamento:")
-        pay_line = " | ".join([f"{k}: {format_brl(v)}" for k, v in payload["totais_por_pagamento"].items()]) or "-"
+        py = resumo_top - 30 * mm
         pdf.setFont("Helvetica", 9)
-        pdf.drawString(left + 52 * mm, resumo_top - 25 * mm, pay_line[:120])
+        if pay_rows:
+            for pagamento, total in pay_rows:
+                pdf.drawString(left + 7 * mm, py, f"- {pagamento}: {format_brl(total)}")
+                py -= 5 * mm
+        else:
+            pdf.drawString(left + 7 * mm, py, "-")
 
         y = resumo_bottom - 8 * mm
 
@@ -195,9 +234,12 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
                 y -= 7 * mm
 
             pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
-            bloco_h = 18 * mm
-            if venda["observacoes"]:
-                bloco_h += 5 * mm
+            pagamentos_texto = " | ".join(
+                [f"{row['tipo_pagamento']}: {format_brl(row['valor'])}" for row in venda.get("pagamentos", [])]
+            ) or "-"
+            pay_lines = wrap_text(f"Pagamentos: {pagamentos_texto}", max_width=(right - left - 6 * mm), font_size=8.8)
+            obs_lines = wrap_text(f"Observações: {venda['observacoes']}", max_width=(right - left - 6 * mm), font_size=8.8) if venda["observacoes"] else []
+            bloco_h = (15 + (len(pay_lines) * 4.5) + (len(obs_lines) * 4.5)) * mm
             pdf.roundRect(left, y - bloco_h, right - left, bloco_h, 2, fill=0, stroke=1)
 
             pdf.setFont("Helvetica-Bold", 10)
@@ -208,13 +250,14 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
                 y - 10 * mm,
                 f"Unidade: {venda['unidade']} | Vendedor: {venda['vendedor']} | Status: {venda['status']}",
             )
-            pdf.drawString(
-                left + 3 * mm,
-                y - 14.5 * mm,
-                f"Pagamento: {venda['pagamento']} | Desconto: {format_brl(venda['desconto_total'])} | Total: {format_brl(venda['total_final'])}",
-            )
-            if venda["observacoes"]:
-                pdf.drawString(left + 3 * mm, y - 19 * mm, f"Observações: {venda['observacoes'][:90]}")
+            pdf.drawString(left + 3 * mm, y - 14.5 * mm, f"Desconto: {format_brl(venda['desconto_total'])} | Total: {format_brl(venda['total_final'])}")
+            py_line = y - 19 * mm
+            for line in pay_lines[:4]:
+                pdf.drawString(left + 3 * mm, py_line, line)
+                py_line -= 4.4 * mm
+            for line in obs_lines[:3]:
+                pdf.drawString(left + 3 * mm, py_line, line)
+                py_line -= 4.4 * mm
             y -= bloco_h + 2.5 * mm
 
             # Itens da venda
@@ -256,10 +299,21 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
         y -= 5 * mm
         pdf.setFont("Helvetica", 10)
         for pagamento, total in payload["totais_por_pagamento"].items():
+            if y < 22 * mm:
+                pdf.showPage()
+                y = height - 20 * mm
+                pdf.setFont("Helvetica", 10)
             pdf.drawString(left + 4 * mm, y, f"- {pagamento}: {format_brl(total)}")
             y -= 5 * mm
         pdf.setFont("Helvetica", 10)
-        pdf.drawString(left, y, f"Observações do fechamento: {observacoes or '-'}")
+        obs_final = wrap_text(f"Observações do fechamento: {observacoes or '-'}", max_width=(right - left), font_size=10)
+        for line in obs_final[:4]:
+            if y < 18 * mm:
+                pdf.showPage()
+                y = height - 20 * mm
+                pdf.setFont("Helvetica", 10)
+            pdf.drawString(left, y, line)
+            y -= 5 * mm
 
         pdf.save()
         buffer.seek(0)
@@ -272,8 +326,11 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
             "SECAO 1 - DETALHAMENTO DAS VENDAS",
         ]
         for venda in payload["vendas"]:
+            pagamentos_txt = " | ".join(
+                [f"{p['tipo_pagamento']}: {format_brl(p['valor'])}" for p in venda.get("pagamentos", [])]
+            ) or "-"
             lines.append(
-                f"Venda {venda['codigo']} | Cliente {venda['cliente']} | Pgto {venda['pagamento']} | Total {format_brl(venda['total_final'])}"
+                f"Venda {venda['codigo']} | Cliente {venda['cliente']} | Pgto {pagamentos_txt} | Total {format_brl(venda['total_final'])}"
             )
         lines.extend(
             [

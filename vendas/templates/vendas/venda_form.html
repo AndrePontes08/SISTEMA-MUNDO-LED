@@ -33,6 +33,7 @@
       <div>
         <label for="{{ form.tipo_pagamento.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.tipo_pagamento.label }}</label>
         {{ form.tipo_pagamento }}
+        <small class="muted">Forma principal da venda (usada como referência).</small>
       </div>
       <div id="field-numero-parcelas">
         <label for="{{ form.numero_parcelas.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.numero_parcelas.label }}</label>
@@ -53,6 +54,42 @@
       <div style="grid-column:1 / -1;">
         <label for="{{ form.observacoes.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.observacoes.label }}</label>
         {{ form.observacoes }}
+      </div>
+      <div style="grid-column:1 / -1;">
+        <label style="display:block;font-weight:600;margin-bottom:6px;">Formas de pagamento da venda</label>
+        <p class="muted" style="margin:0 0 8px 0;">A soma das formas deve ser igual ao total final da venda.</p>
+        <table style="width:100%;border-collapse:collapse;" id="pagamentos-table">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Forma de pagamento</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Valor (R$)</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="pagamentos-body">
+            {% for tipo_val, valor_val in pagamentos_rows %}
+              <tr class="pagamento-row">
+                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+                  <select name="pagamentos_tipo" style="width:100%;">
+                    <option value="">Selecione</option>
+                    {% for opt_val, opt_label in tipo_pagamento_choices %}
+                      <option value="{{ opt_val }}" {% if tipo_val == opt_val %}selected{% endif %}>{{ opt_label }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+                  <input type="number" step="0.01" min="0" name="pagamentos_valor" value="{{ valor_val }}" style="width:100%;">
+                </td>
+                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+                  <button type="button" class="btn js-remove-pagamento">Remover</button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div style="margin-top:8px;">
+          <button class="btn" type="button" id="add-pagamento-btn">Adicionar forma de pagamento</button>
+        </div>
       </div>
     </div>
     {% if form.non_field_errors %}
@@ -103,6 +140,25 @@
       </tr>
     </template>
 
+    <template id="empty-pagamento-template">
+      <tr class="pagamento-row">
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+          <select name="pagamentos_tipo" style="width:100%;">
+            <option value="">Selecione</option>
+            {% for opt_val, opt_label in tipo_pagamento_choices %}
+              <option value="{{ opt_val }}">{{ opt_label }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+          <input type="number" step="0.01" min="0" name="pagamentos_valor" style="width:100%;">
+        </td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+          <button type="button" class="btn js-remove-pagamento">Remover</button>
+        </td>
+      </tr>
+    </template>
+
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn" type="button" id="add-item-btn">Adicionar produto</button>
       <button class="btn" type="submit">Salvar</button>
@@ -131,6 +187,9 @@
     const addBtn = document.getElementById("add-item-btn");
     const totalForms = document.getElementById("id_itens-TOTAL_FORMS");
     const template = document.getElementById("empty-item-template");
+    const pagamentosBody = document.getElementById("pagamentos-body");
+    const pagamentoTemplate = document.getElementById("empty-pagamento-template");
+    const addPagamentoBtn = document.getElementById("add-pagamento-btn");
 
     function bindRemove(btn) {
       btn.addEventListener("click", function () {
@@ -165,17 +224,58 @@
       document.getElementById("field-acrescimo")
     ];
 
+    function hasBoletoInRows() {
+      const selects = pagamentosBody ? pagamentosBody.querySelectorAll('select[name="pagamentos_tipo"]') : [];
+      for (const sel of selects) {
+        if (sel.value === "PARCELADO_BOLETO") return true;
+      }
+      return false;
+    }
+
     function toggleBoletoFields() {
-      const isBoleto = tipoPagamento && tipoPagamento.value === "PARCELADO_BOLETO";
+      const isBoleto = (tipoPagamento && tipoPagamento.value === "PARCELADO_BOLETO") || hasBoletoInRows();
       boletoFields.forEach(function (el) {
         if (!el) return;
         el.style.display = isBoleto ? "block" : "none";
       });
     }
 
+    function bindPagamentoRemove(btn) {
+      btn.addEventListener("click", function () {
+        const row = btn.closest(".pagamento-row");
+        if (row) {
+          row.remove();
+          toggleBoletoFields();
+        }
+      });
+    }
+
     if (tipoPagamento) {
       tipoPagamento.addEventListener("change", toggleBoletoFields);
       toggleBoletoFields();
+    }
+
+    if (pagamentosBody) {
+      pagamentosBody.querySelectorAll(".js-remove-pagamento").forEach(bindPagamentoRemove);
+      pagamentosBody.querySelectorAll('select[name="pagamentos_tipo"]').forEach(function (sel) {
+        sel.addEventListener("change", toggleBoletoFields);
+      });
+    }
+
+    if (addPagamentoBtn && pagamentoTemplate && pagamentosBody) {
+      addPagamentoBtn.addEventListener("click", function () {
+        const wrapper = document.createElement("tbody");
+        wrapper.innerHTML = pagamentoTemplate.innerHTML.trim();
+        const row = wrapper.querySelector(".pagamento-row");
+        pagamentosBody.appendChild(row);
+        const removeBtn = row.querySelector(".js-remove-pagamento");
+        if (removeBtn) bindPagamentoRemove(removeBtn);
+        const select = row.querySelector('select[name="pagamentos_tipo"]');
+        if (select) {
+          select.addEventListener("change", toggleBoletoFields);
+        }
+        toggleBoletoFields();
+      });
     }
   })();
 </script>

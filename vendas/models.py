@@ -155,6 +155,39 @@ class Venda(models.Model):
             type(self).objects.filter(pk=self.pk).update(codigo_identificacao=esperado)
             self.codigo_identificacao = esperado
 
+    def pagamentos_para_exibicao(self):
+        pagamentos = list(self.pagamentos.order_by("-valor", "id"))
+        if pagamentos:
+            return pagamentos
+        return []
+
+
+class VendaPagamento(models.Model):
+    venda = models.ForeignKey(Venda, on_delete=models.CASCADE, related_name="pagamentos")
+    tipo_pagamento = models.CharField(
+        max_length=25,
+        choices=TipoPagamentoChoices.choices,
+        db_index=True,
+    )
+    valor = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-valor", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["venda", "tipo_pagamento"], name="uniq_venda_tipopag"),
+        ]
+        indexes = [
+            models.Index(fields=["venda", "tipo_pagamento"], name="idx_vendapag_venda_tipo"),
+        ]
+
+    def __str__(self) -> str:
+        return f"Venda {self.venda_id} - {self.tipo_pagamento} - {self.valor}"
+
 
 class ItemVenda(models.Model):
     venda = models.ForeignKey(Venda, on_delete=models.CASCADE, related_name="itens")

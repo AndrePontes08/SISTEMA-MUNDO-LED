@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from vendas.models import ItemVenda, Venda, VendaBoleto, VendaEvento, VendaMovimentoEstoque, VendaRecebivel
+from vendas.models import ItemVenda, Venda, VendaBoleto, VendaEvento, VendaMovimentoEstoque, VendaPagamento, VendaRecebivel
 
 
 class ItemVendaInline(admin.TabularInline):
     model = ItemVenda
     extra = 0
     autocomplete_fields = ("produto",)
+
+
+class VendaPagamentoInline(admin.TabularInline):
+    model = VendaPagamento
+    extra = 0
 
 
 @admin.register(Venda)
@@ -18,7 +23,7 @@ class VendaAdmin(admin.ModelAdmin):
     search_fields = ("id", "cliente__nome", "cliente__nome_normalizado")
     autocomplete_fields = ("cliente", "vendedor")
     readonly_fields = ("subtotal", "desconto_total", "total_final", "criado_em", "atualizado_em")
-    inlines = [ItemVendaInline]
+    inlines = [ItemVendaInline, VendaPagamentoInline]
 
 
 @admin.register(ItemVenda)
@@ -53,3 +58,10 @@ class VendaRecebivelAdmin(admin.ModelAdmin):
 class VendaBoletoAdmin(admin.ModelAdmin):
     list_display = ("id", "venda", "numero_parcela", "boleto")
     autocomplete_fields = ("venda", "boleto")
+
+
+@admin.register(VendaPagamento)
+class VendaPagamentoAdmin(admin.ModelAdmin):
+    list_display = ("id", "venda", "tipo_pagamento", "valor", "criado_em")
+    list_filter = ("tipo_pagamento", "criado_em")
+    autocomplete_fields = ("venda",)

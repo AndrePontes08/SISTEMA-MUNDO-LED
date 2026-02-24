@@ -7,7 +7,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib import messages
-from django.db.models import Count, DecimalField, Prefetch, Sum, Value
+from django.db.models import Count, DecimalField, Prefetch, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import redirect
@@ -27,6 +27,7 @@ from vendas.models import (
     TipoDocumentoVendaChoices,
     TipoPagamentoChoices,
     Venda,
+    VendaPagamento,
 )
 from vendas.services.statistics_service import VendasStatisticsService
 from vendas.services.fechamento_caixa_service import gerar_fechamento_caixa
@@ -103,7 +104,7 @@ def _pdf_business_lines(venda: Venda) -> list[str]:
         f"Data emissao: {venda.data_venda:%d/%m/%Y}",
         f"Validade da proposta: {validade}",
         f"Vendedor responsavel: {venda.vendedor or '-'}",
-        f"Pagamento: {payment_label(venda.tipo_pagamento)} | Status: {venda.get_status_display()}",
+        f"Pagamento: {_pagamentos_texto(venda)} | Status: {venda.get_status_display()}",
         f"Parcelamento: {parcelamento}",
         "",
         "ITENS",
@@ -158,6 +159,58 @@ def _split_text_plain(text: str, limit: int = 95) -> list[str]:
     return lines
 
 
+def _pagamentos_texto(venda: Venda) -> str:
+    pagamentos = list(venda.pagamentos.all())
+    if not pagamentos:
+        return payment_label(venda.tipo_pagamento)
+    return " | ".join([f"{payment_label(p.tipo_pagamento)}: {format_brl(p.valor)}" for p in pagamentos])
+
+
+def _parse_pagamentos_post(request, fallback_tipo: str, fallback_valor: Decimal) -> list[dict]:
+    tipos = request.POST.getlist("pagamentos_tipo")
+    valores = request.POST.getlist("pagamentos_valor")
+    valid_types = {value for value, _ in TipoPagamentoChoices.choices}
+    pagamentos: list[dict] = []
+    for tipo_raw, valor_raw in zip(tipos, valores):
+        tipo = (tipo_raw or "").strip()
+        valor_txt = (valor_raw or "").strip().replace(".", "").replace(",", ".")
+        if not tipo or tipo not in valid_types:
+            continue
+        try:
+            valor = Decimal(valor_txt)
+        except Exception:
+            continue
+        if valor <= 0:
+            continue
+        pagamentos.append({"tipo_pagamento": tipo, "valor": valor.quantize(Decimal("0.01"))})
+
+    if not pagamentos:
+        valor = (fallback_valor or Decimal("0.00")).quantize(Decimal("0.01"))
+        if valor > 0:
+            pagamentos = [{"tipo_pagamento": fallback_tipo, "valor": valor}]
+    return pagamentos
+
+
+def _normalizar_pagamentos(pagamentos: list[dict]) -> list[dict]:
+    acumulado: dict[str, Decimal] = {}
+    for row in pagamentos:
+        tipo = row["tipo_pagamento"]
+        acumulado[tipo] = acumulado.get(tipo, Decimal("0.00")) + (row["valor"] or Decimal("0.00"))
+    return [{"tipo_pagamento": tipo, "valor": valor.quantize(Decimal("0.01"))} for tipo, valor in acumulado.items() if valor > 0]
+
+
+def _persistir_pagamentos(venda: Venda, pagamentos: list[dict]) -> None:
+    normalizados = _normalizar_pagamentos(pagamentos)
+    VendaPagamento.objects.filter(venda=venda).delete()
+    if normalizados:
+        VendaPagamento.objects.bulk_create(
+            [VendaPagamento(venda=venda, tipo_pagamento=row["tipo_pagamento"], valor=row["valor"]) for row in normalizados]
+        )
+        principal = max(normalizados, key=lambda x: x["valor"])
+        venda.tipo_pagamento = principal["tipo_pagamento"]
+        venda.save(update_fields=["tipo_pagamento", "atualizado_em"])
+
+
 class VendaListView(VendasAccessMixin, ListView):
     model = Venda
     template_name = "vendas/venda_list.html"
@@ -169,7 +222,7 @@ class VendaListView(VendasAccessMixin, ListView):
     def get_queryset(self):
         qs = (
             Venda.objects.select_related("cliente", "vendedor")
-            .prefetch_related("itens")
+            .prefetch_related("itens", "pagamentos")
             .order_by("-data_venda", "-id")
         )
         status = (self.request.GET.get("status") or "").strip()
@@ -189,7 +242,7 @@ class VendaListView(VendasAccessMixin, ListView):
         if vendedor:
             qs = qs.filter(vendedor__username__istartswith=vendedor)
         if tipo_pagamento:
-            qs = qs.filter(tipo_pagamento=tipo_pagamento)
+            qs = qs.filter(Q(tipo_pagamento=tipo_pagamento) | Q(pagamentos__tipo_pagamento=tipo_pagamento)).distinct()
         if data_inicio:
             qs = qs.filter(data_venda__gte=data_inicio)
         if data_fim:
@@ -233,6 +286,7 @@ class VendaDetailView(VendasAccessMixin, DetailView):
             Venda.objects.select_related("cliente", "vendedor")
             .prefetch_related(
                 Prefetch("itens", queryset=ItemVenda.objects.select_related("produto")),
+                "pagamentos",
                 "eventos__usuario",
                 "movimentos_estoque__movimento",
                 "recebiveis__recebivel",
@@ -255,9 +309,14 @@ class VendaCreateView(VendasAccessMixin, CreateView):
         ctx = super().get_context_data(**kwargs)
         if self.request.POST:
             ctx["itens_formset"] = ItemVendaFormSet(self.request.POST, instance=self.object)
+            tipos = self.request.POST.getlist("pagamentos_tipo")
+            valores = self.request.POST.getlist("pagamentos_valor")
+            ctx["pagamentos_rows"] = list(zip(tipos, valores)) or [("", "")]
         else:
             ctx["itens_formset"] = ItemVendaFormSet(instance=self.object)
+            ctx["pagamentos_rows"] = [("", "")]
         ctx["empty_item_form"] = ItemVendaFormSet(instance=self.object).empty_form
+        ctx["tipo_pagamento_choices"] = [(value, payment_label(value)) for value, _ in TipoPagamentoChoices.choices]
         return ctx
 
     def get_form_kwargs(self):
@@ -281,6 +340,19 @@ class VendaCreateView(VendasAccessMixin, CreateView):
             return self.form_invalid(form)
         if not self._validar_autorizacao_desconto(itens_validos):
             return self.form_invalid(form)
+        total_previsto = self._total_previsto(itens_validos, form.cleaned_data.get("acrescimo"))
+        pagamentos_previstos = _parse_pagamentos_post(
+            self.request,
+            fallback_tipo=form.cleaned_data.get("tipo_pagamento"),
+            fallback_valor=total_previsto,
+        )
+        total_pagamentos_previstos = sum((p["valor"] for p in pagamentos_previstos), Decimal("0.00")).quantize(Decimal("0.01"))
+        if total_pagamentos_previstos != total_previsto:
+            messages.error(
+                self.request,
+                f"A soma das formas de pagamento ({format_brl(total_pagamentos_previstos)}) deve ser igual ao total da venda ({format_brl(total_previsto)}).",
+            )
+            return self.form_invalid(form)
 
         self.object = form.save(commit=False)
         if not self._is_manager():
@@ -290,6 +362,7 @@ class VendaCreateView(VendasAccessMixin, CreateView):
         formset.instance = self.object
         formset.save()
         recalcular_totais(self.object)
+        _persistir_pagamentos(self.object, pagamentos_previstos)
         registrar_evento(self.object, "CRIACAO", self.request.user, "Venda criada pela interface")
         if getattr(self, "_desconto_percentual", Decimal("0.00")) > Decimal("10.00"):
             registrar_evento(
@@ -328,6 +401,23 @@ class VendaCreateView(VendasAccessMixin, CreateView):
             if percentual > maior:
                 maior = percentual
         return maior
+
+    def _total_previsto(self, itens_forms, acrescimo) -> Decimal:
+        total = Decimal("0.00")
+        for item_form in itens_forms:
+            data = item_form.cleaned_data or {}
+            preco = data.get("preco_unitario") or Decimal("0.00")
+            quantidade = data.get("quantidade") or Decimal("0.000")
+            desconto = data.get("desconto") or Decimal("0.00")
+            bruto = (preco * quantidade).quantize(Decimal("0.01"))
+            subtotal = (bruto - desconto).quantize(Decimal("0.01"))
+            if subtotal < 0:
+                subtotal = Decimal("0.00")
+            total += subtotal
+        total += (acrescimo or Decimal("0.00"))
+        if total < 0:
+            total = Decimal("0.00")
+        return total.quantize(Decimal("0.01"))
 
     def _validar_autorizacao_desconto(self, itens_forms) -> bool:
         self._desconto_percentual = self._maior_percentual_desconto(itens_forms)
@@ -368,9 +458,15 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
         ctx = super().get_context_data(**kwargs)
         if self.request.POST:
             ctx["itens_formset"] = ItemVendaFormSet(self.request.POST, instance=self.object)
+            tipos = self.request.POST.getlist("pagamentos_tipo")
+            valores = self.request.POST.getlist("pagamentos_valor")
+            ctx["pagamentos_rows"] = list(zip(tipos, valores)) or [("", "")]
         else:
             ctx["itens_formset"] = ItemVendaFormSet(instance=self.object)
+            atuais = list(self.object.pagamentos.values_list("tipo_pagamento", "valor"))
+            ctx["pagamentos_rows"] = [(tipo, str(valor)) for tipo, valor in atuais] or [(self.object.tipo_pagamento, str(self.object.total_final))]
         ctx["empty_item_form"] = ItemVendaFormSet(instance=self.object).empty_form
+        ctx["tipo_pagamento_choices"] = [(value, payment_label(value)) for value, _ in TipoPagamentoChoices.choices]
         return ctx
 
     def get_form_kwargs(self):
@@ -393,6 +489,19 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
             return self.form_invalid(form)
         if not self._validar_autorizacao_desconto(itens_validos):
             return self.form_invalid(form)
+        total_previsto = self._total_previsto(itens_validos, form.cleaned_data.get("acrescimo"))
+        pagamentos_previstos = _parse_pagamentos_post(
+            self.request,
+            fallback_tipo=form.cleaned_data.get("tipo_pagamento"),
+            fallback_valor=total_previsto,
+        )
+        total_pagamentos_previstos = sum((p["valor"] for p in pagamentos_previstos), Decimal("0.00")).quantize(Decimal("0.01"))
+        if total_pagamentos_previstos != total_previsto:
+            messages.error(
+                self.request,
+                f"A soma das formas de pagamento ({format_brl(total_pagamentos_previstos)}) deve ser igual ao total da venda ({format_brl(total_previsto)}).",
+            )
+            return self.form_invalid(form)
 
         before = self.get_object()
         change_log = self._build_change_log(before, form, formset)
@@ -403,6 +512,7 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
         self.object.save()
         formset.save()
         recalcular_totais(self.object)
+        _persistir_pagamentos(self.object, pagamentos_previstos)
         if change_log:
             registrar_evento(
                 self.object,
@@ -497,6 +607,23 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
                 maior = percentual
         return maior
 
+    def _total_previsto(self, itens_forms, acrescimo) -> Decimal:
+        total = Decimal("0.00")
+        for item_form in itens_forms:
+            data = item_form.cleaned_data or {}
+            preco = data.get("preco_unitario") or Decimal("0.00")
+            quantidade = data.get("quantidade") or Decimal("0.000")
+            desconto = data.get("desconto") or Decimal("0.00")
+            bruto = (preco * quantidade).quantize(Decimal("0.01"))
+            subtotal = (bruto - desconto).quantize(Decimal("0.01"))
+            if subtotal < 0:
+                subtotal = Decimal("0.00")
+            total += subtotal
+        total += (acrescimo or Decimal("0.00"))
+        if total < 0:
+            total = Decimal("0.00")
+        return total.quantize(Decimal("0.01"))
+
     def _validar_autorizacao_desconto(self, itens_forms) -> bool:
         self._desconto_percentual = self._maior_percentual_desconto(itens_forms)
         self._desconto_autorizador = None
@@ -574,7 +701,7 @@ class VendaPDFView(VendasAccessMixin, View):
     def get(self, request, *args, **kwargs):
         venda = (
             Venda.objects.select_related("cliente", "vendedor")
-            .prefetch_related("itens__produto")
+            .prefetch_related("itens__produto", "pagamentos")
             .get(pk=kwargs["pk"])
         )
         filename = f"{venda.codigo_identificacao}.pdf"
@@ -670,13 +797,25 @@ class VendaPDFView(VendasAccessMixin, View):
             pdf.drawString(left + 3 * mm, info_top - 36 * mm, f"Data: {venda.data_venda:%d/%m/%Y}  |  Validade: {validade}")
 
             col2 = left + 105 * mm
-            pdf.drawString(col2, info_top - 12 * mm, f"Forma de pagamento: {payment_label(venda.tipo_pagamento)}")
-            pdf.drawString(col2, info_top - 18 * mm, f"Parcelamento: {parcelamento}")
+            pagamentos_texto = _pagamentos_texto(venda)
+            pagamento_lines = wrap_text(
+                pdf,
+                f"Forma de pagamento: {pagamentos_texto}",
+                max_width=(right - col2 - 3 * mm),
+                font_size=9,
+            )
+            pay_y = info_top - 12 * mm
+            for pline in pagamento_lines[:2]:
+                pdf.drawString(col2, pay_y, pline)
+                pay_y -= 4.2 * mm
+            pdf.drawString(col2, pay_y, f"Parcelamento: {parcelamento}")
+            pay_y -= 6 * mm
             if venda.primeiro_vencimento:
-                pdf.drawString(col2, info_top - 24 * mm, f"1 vencimento: {venda.primeiro_vencimento:%d/%m/%Y}")
+                pdf.drawString(col2, pay_y, f"1 vencimento: {venda.primeiro_vencimento:%d/%m/%Y}")
             else:
-                pdf.drawString(col2, info_top - 24 * mm, "1 vencimento: -")
-            pdf.drawString(col2, info_top - 30 * mm, f"Status: {venda.get_status_display()}")
+                pdf.drawString(col2, pay_y, "1 vencimento: -")
+            pay_y -= 6 * mm
+            pdf.drawString(col2, pay_y, f"Status: {venda.get_status_display()}")
             y = info_bottom - 9 * mm
 
             # Header da tabela de itens

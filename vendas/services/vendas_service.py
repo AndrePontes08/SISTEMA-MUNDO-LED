@@ -6,6 +6,8 @@ from decimal import Decimal
 from typing import Iterable
 
 from django.db import transaction
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from boletos.models import Boleto, StatusBoletoChoices
@@ -25,6 +27,7 @@ from vendas.models import (
     VendaBoleto,
     VendaEvento,
     VendaMovimentoEstoque,
+    VendaPagamento,
     VendaRecebivel,
 )
 from vendas.services.totais_service import recalcular_totais
@@ -75,6 +78,16 @@ def _parcelar_valor(total: Decimal, parcelas: int) -> list[Decimal]:
     diferenca = total - soma
     valores[-1] = _to_dec_2(valores[-1] + diferenca)
     return valores
+
+
+def _total_pagamentos_tipo(venda: Venda, tipos: tuple[str, ...]) -> Decimal:
+    total = (
+        VendaPagamento.objects.filter(venda=venda, tipo_pagamento__in=tipos).aggregate(
+            total=Coalesce(Sum("valor"), Decimal("0.00"))
+        )["total"]
+        or Decimal("0.00")
+    )
+    return _to_dec_2(total)
 
 
 def registrar_evento(venda: Venda, tipo: str, usuario=None, detalhe: str = "") -> VendaEvento:
@@ -247,10 +260,18 @@ def faturar_venda(venda: Venda, usuario=None) -> FaturamentoResult:
         )
         movimentos_criados += 1
 
-    eh_prazo = venda.tipo_pagamento in (TipoPagamentoChoices.CREDITO_LOJA, TipoPagamentoChoices.BOLETO)
+    total_a_prazo = _total_pagamentos_tipo(venda, (TipoPagamentoChoices.CREDITO_LOJA, TipoPagamentoChoices.BOLETO))
+    total_boleto = _total_pagamentos_tipo(venda, (TipoPagamentoChoices.BOLETO,))
+    if total_a_prazo <= 0 and venda.tipo_pagamento in (TipoPagamentoChoices.CREDITO_LOJA, TipoPagamentoChoices.BOLETO):
+        total_a_prazo = _to_dec_2(venda.total_final)
+        if venda.tipo_pagamento == TipoPagamentoChoices.BOLETO:
+            total_boleto = _to_dec_2(venda.total_final)
+
+    eh_prazo = total_a_prazo > 0
     if eh_prazo:
         parcelas = max(1, venda.numero_parcelas or 1)
-        valores = _parcelar_valor(venda.total_final, parcelas)
+        valores_prazo = _parcelar_valor(total_a_prazo, parcelas)
+        valores_boleto = _parcelar_valor(total_boleto, parcelas) if total_boleto > 0 else [Decimal("0.00")] * parcelas
         base_vencimento = venda.primeiro_vencimento or venda.data_venda
         for idx in range(parcelas):
             numero_parcela = idx + 1
@@ -266,7 +287,7 @@ def faturar_venda(venda: Venda, usuario=None) -> FaturamentoResult:
                     recebivel = Recebivel.objects.create(
                         descricao=f"Venda #{venda.id} - parcela {numero_parcela}/{parcelas}",
                         data_prevista=data_venc,
-                        valor=valores[idx],
+                        valor=valores_prazo[idx],
                         status=StatusRecebivelChoices.ABERTO,
                         origem_app="vendas",
                         origem_pk=venda.id,
@@ -277,18 +298,18 @@ def faturar_venda(venda: Venda, usuario=None) -> FaturamentoResult:
                     venda=venda,
                     numero_parcela=numero_parcela,
                     recebivel=recebivel,
-                    valor=valores[idx],
+                    valor=valores_prazo[idx],
                     data_vencimento=data_venc,
                 )
 
-            if venda.tipo_pagamento == TipoPagamentoChoices.BOLETO:
+            if valores_boleto[idx] > 0:
                 numero_boleto = f"VD{venda.id:08d}-{numero_parcela:02d}"
                 boleto, created = Boleto.objects.get_or_create(
                     numero_boleto=numero_boleto,
                     defaults={
                         "cliente": venda.cliente,
                         "descricao": f"Venda #{venda.id} - parcela {numero_parcela}/{parcelas}",
-                        "valor": valores[idx],
+                        "valor": valores_boleto[idx],
                         "data_vencimento": data_venc,
                         "vendedor": venda.vendedor,
                         "status": StatusBoletoChoices.ABERTO,

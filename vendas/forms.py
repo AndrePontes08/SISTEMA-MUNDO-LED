@@ -68,14 +68,16 @@ class VendaForm(forms.ModelForm):
         tipo = cleaned.get("tipo_pagamento")
         parcelas = cleaned.get("numero_parcelas") or 1
         primeiro_vencimento = cleaned.get("primeiro_vencimento")
+        pagamentos_tipos = [t for t in self.data.getlist("pagamentos_tipo") if t]
+        possui_boleto = TipoPagamentoChoices.BOLETO in pagamentos_tipos or tipo == TipoPagamentoChoices.BOLETO
 
-        if tipo != TipoPagamentoChoices.BOLETO:
+        if not possui_boleto:
             cleaned["numero_parcelas"] = 1
             cleaned["intervalo_parcelas_dias"] = 30
             cleaned["primeiro_vencimento"] = None
-        if tipo == TipoPagamentoChoices.BOLETO and parcelas < 2:
+        if possui_boleto and parcelas < 2:
             raise forms.ValidationError("Para venda parcelada, informe ao menos 2 parcelas.")
-        if tipo == TipoPagamentoChoices.BOLETO and not primeiro_vencimento:
+        if possui_boleto and not primeiro_vencimento:
             raise forms.ValidationError("Informe o primeiro vencimento para vendas parceladas.")
         return cleaned
 
