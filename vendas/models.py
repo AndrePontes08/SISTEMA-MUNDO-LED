@@ -22,9 +22,12 @@ class StatusVendaChoices(models.TextChoices):
 
 
 class TipoPagamentoChoices(models.TextChoices):
-    AVISTA = "AVISTA", "A vista"
-    PARCELADO = "PARCELADO", "Parcelado"
-    PARCELADO_BOLETO = "PARCELADO_BOLETO", "Parcelado com boleto"
+    PIX = "PIX", "PIX"
+    CREDITO = "CREDITO", "CREDITO"
+    DEBITO = "DEBITO", "DEBITO"
+    ESPECIE = "AVISTA", "ESPECIE"
+    BOLETO = "PARCELADO_BOLETO", "BOLETO"
+    CREDITO_LOJA = "PARCELADO", "CREDITO NA LOJA"
 
 
 class TipoDocumentoVendaChoices(models.TextChoices):
@@ -78,7 +81,7 @@ class Venda(models.Model):
     tipo_pagamento = models.CharField(
         max_length=25,
         choices=TipoPagamentoChoices.choices,
-        default=TipoPagamentoChoices.AVISTA,
+        default=TipoPagamentoChoices.ESPECIE,
         db_index=True,
     )
     numero_parcelas = models.PositiveSmallIntegerField(
@@ -128,7 +131,7 @@ class Venda(models.Model):
         ]
 
     def clean(self):
-        if self.tipo_pagamento == TipoPagamentoChoices.AVISTA:
+        if self.tipo_pagamento == TipoPagamentoChoices.ESPECIE:
             self.numero_parcelas = 1
         if self.numero_parcelas <= 1:
             self.intervalo_parcelas_dias = 30

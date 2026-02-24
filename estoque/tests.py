@@ -328,6 +328,22 @@ class CustoImportPermissaoTest(TestCase):
         cfg = ProdutoEstoque.objects.get(produto=produto)
         self.assertEqual(cfg.custo_medio, Decimal("0.0000"))
 
+    def test_importar_custo_permite_setor_vendas(self):
+        user_model = get_user_model()
+        vendedor = user_model.objects.create_user("vendedor_custo", password="pass")
+        Group.objects.get_or_create(name="vendedor")[0].user_set.add(vendedor)
+        produto = Produto.objects.create(nome="Produto Custo Vendedor", sku="CTP-2", ativo=True)
+        ProdutoEstoque.objects.create(produto=produto, saldo_atual=Decimal("1.000"))
+        self.client.force_login(vendedor)
+
+        csv_content = "SKU;CUSTO_MEDIO\nCTP-2;15,90\n".encode("utf-8")
+        arquivo = SimpleUploadedFile("custos.csv", csv_content, content_type="text/csv")
+        response = self.client.post(reverse("estoque:estoque_completo"), data={"arquivo": arquivo})
+
+        self.assertEqual(response.status_code, 302)
+        cfg = ProdutoEstoque.objects.get(produto=produto)
+        self.assertEqual(cfg.custo_medio, Decimal("15.9000"))
+
 
 class RecebimentoEstoqueFlowTest(TestCase):
     def test_compra_aprovada_aparece_na_fila_e_estoquista_confirma_recebimento(self):

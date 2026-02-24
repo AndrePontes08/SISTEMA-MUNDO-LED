@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.forms import inlineformset_factory
@@ -61,18 +63,53 @@ class VendaForm(forms.ModelForm):
         parcelas = cleaned.get("numero_parcelas") or 1
         primeiro_vencimento = cleaned.get("primeiro_vencimento")
 
-        if tipo != TipoPagamentoChoices.PARCELADO_BOLETO:
+        if tipo != TipoPagamentoChoices.BOLETO:
             cleaned["numero_parcelas"] = 1
             cleaned["intervalo_parcelas_dias"] = 30
             cleaned["primeiro_vencimento"] = None
-        if tipo == TipoPagamentoChoices.PARCELADO_BOLETO and parcelas < 2:
+        if tipo == TipoPagamentoChoices.BOLETO and parcelas < 2:
             raise forms.ValidationError("Para venda parcelada, informe ao menos 2 parcelas.")
-        if tipo == TipoPagamentoChoices.PARCELADO_BOLETO and not primeiro_vencimento:
+        if tipo == TipoPagamentoChoices.BOLETO and not primeiro_vencimento:
             raise forms.ValidationError("Informe o primeiro vencimento para vendas parceladas.")
         return cleaned
 
 
 class ItemVendaForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["desconto"].label = "Desconto (%)"
+        self.fields["desconto"].help_text = "Informe percentual de desconto do item."
+        self.fields["desconto"].widget.attrs.setdefault("step", "0.01")
+        self.fields["desconto"].widget.attrs.setdefault("min", "0")
+        self.fields["desconto"].widget.attrs.setdefault("max", "100")
+
+        instance = getattr(self, "instance", None)
+        if instance and instance.pk:
+            preco = instance.preco_unitario or Decimal("0.00")
+            qtd = instance.quantidade or Decimal("0.000")
+            bruto = preco * qtd
+            if bruto > 0 and (instance.desconto or Decimal("0.00")) > 0:
+                percentual = ((instance.desconto / bruto) * Decimal("100.00")).quantize(Decimal("0.01"))
+                self.initial["desconto"] = percentual
+            else:
+                self.initial["desconto"] = Decimal("0.00")
+
+    def clean_desconto(self):
+        percentual = self.cleaned_data.get("desconto") or Decimal("0.00")
+        if percentual < 0:
+            raise forms.ValidationError("Desconto deve ser maior ou igual a 0.")
+        if percentual > Decimal("100.00"):
+            raise forms.ValidationError("Desconto percentual nao pode ultrapassar 100%.")
+
+        preco = self.cleaned_data.get("preco_unitario") or Decimal("0.00")
+        quantidade = self.cleaned_data.get("quantidade") or Decimal("0.000")
+        bruto = preco * quantidade
+        if bruto <= 0:
+            return Decimal("0.00")
+
+        valor_desconto = (bruto * percentual / Decimal("100.00")).quantize(Decimal("0.01"))
+        return valor_desconto
+
     class Meta:
         model = ItemVenda
         fields = ["produto", "quantidade", "preco_unitario", "desconto"]

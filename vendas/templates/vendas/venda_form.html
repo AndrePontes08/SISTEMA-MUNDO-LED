@@ -60,7 +60,7 @@
     {% endif %}
 
     <h3 style="margin-top:18px;">Itens da venda / orcamento</h3>
-    <p class="muted">Adicione quantos produtos forem necessarios. Desconto acima de 10% exige autorizacao de administrador/gerente.</p>
+    <p class="muted">Adicione quantos produtos forem necessarios. O desconto por item e percentual (%). Acima de 10% exige autorizacao de administrador/gerente.</p>
     {{ itens_formset.management_form }}
     <table style="width:100%;border-collapse:collapse;" id="itens-table">
       <thead>
@@ -68,7 +68,7 @@
           <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Produto</th>
           <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Quantidade</th>
           <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Preco unitario</th>
-          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Desconto</th>
+          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Desconto (%)</th>
           <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Acao</th>
         </tr>
       </thead>

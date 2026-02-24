@@ -156,6 +156,7 @@ class VendaListView(VendasAccessMixin, ListView):
         status = (self.request.GET.get("status") or "").strip()
         tipo_documento = (self.request.GET.get("tipo_documento") or "").strip()
         cliente = (self.request.GET.get("cliente") or "").strip()
+        vendedor = (self.request.GET.get("vendedor") or "").strip()
         data_inicio = (self.request.GET.get("data_inicio") or "").strip()
         data_fim = (self.request.GET.get("data_fim") or "").strip()
 
@@ -165,6 +166,8 @@ class VendaListView(VendasAccessMixin, ListView):
             qs = qs.filter(tipo_documento=tipo_documento)
         if cliente:
             qs = qs.filter(cliente__nome__icontains=cliente)
+        if vendedor:
+            qs = qs.filter(vendedor__username__istartswith=vendedor)
         if data_inicio:
             qs = qs.filter(data_venda__gte=data_inicio)
         if data_fim:
@@ -277,10 +280,12 @@ class VendaCreateView(VendasAccessMixin, CreateView):
         for item_form in itens_forms:
             data = item_form.cleaned_data or {}
             preco = data.get("preco_unitario") or Decimal("0.00")
+            quantidade = data.get("quantidade") or Decimal("0.000")
             desconto = data.get("desconto") or Decimal("0.00")
-            if preco <= 0 or desconto <= 0:
+            bruto = preco * quantidade
+            if bruto <= 0 or desconto <= 0:
                 continue
-            percentual = ((desconto / preco) * Decimal("100.00")).quantize(Decimal("0.01"))
+            percentual = ((desconto / bruto) * Decimal("100.00")).quantize(Decimal("0.01"))
             if percentual > maior:
                 maior = percentual
         return maior
@@ -443,10 +448,12 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
         for item_form in itens_forms:
             data = item_form.cleaned_data or {}
             preco = data.get("preco_unitario") or Decimal("0.00")
+            quantidade = data.get("quantidade") or Decimal("0.000")
             desconto = data.get("desconto") or Decimal("0.00")
-            if preco <= 0 or desconto <= 0:
+            bruto = preco * quantidade
+            if bruto <= 0 or desconto <= 0:
                 continue
-            percentual = ((desconto / preco) * Decimal("100.00")).quantize(Decimal("0.01"))
+            percentual = ((desconto / bruto) * Decimal("100.00")).quantize(Decimal("0.01"))
             if percentual > maior:
                 maior = percentual
         return maior

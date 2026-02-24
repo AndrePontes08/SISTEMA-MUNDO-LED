@@ -53,15 +53,17 @@ from estoque.services.transferencias_service import transferir_lote_entre_unidad
 
 
 class EstoqueAccessMixin(GroupRequiredMixin):
-    required_groups = ("admin/gestor", "compras/estoque", "estoquista")
+    required_groups = ("admin/gestor", "compras/estoque", "estoquista", "vendedor")
 
 
 def _is_admin_autorizado(user) -> bool:
     if not user or not user.is_authenticated:
         return False
-    if user.is_superuser or user.groups.filter(name="admin/gestor").exists():
+    if user.is_superuser:
         return True
-    return user.username.lower() in {"lucas", "tabatha"}
+    return user.groups.filter(
+        name__in=("admin/gestor", "compras/estoque", "estoquista", "vendedor")
+    ).exists()
 
 
 class EstoqueDashboardView(EstoqueAccessMixin, TemplateView):
@@ -131,7 +133,10 @@ class EstoqueCompletoView(EstoqueAccessMixin, ListView):
 
     def post(self, request, *args, **kwargs):
         if not _is_admin_autorizado(request.user):
-            messages.error(request, "Somente administradores autorizados podem alterar custos de produtos.")
+            messages.error(
+                request,
+                "Somente os setores autorizados (vendas/estoque/gestao) podem alterar custos de produtos.",
+            )
             return redirect("estoque:estoque_completo")
 
         form = ImportCustoEstoqueForm(request.POST, request.FILES)

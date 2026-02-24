@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Vendas{% endblock %}
-{% block page_title %}Vendas{% endblock %}
+{% block title %}Historico de Vendas{% endblock %}
+{% block page_title %}Historico de Vendas{% endblock %}
 
 {% block content %}
 <div class="card">
-  <h2>Listagem de Vendas</h2>
+  <h2>Area de historico de vendas</h2>
   <form method="get" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:12px 0;">
     <input type="text" name="cliente" placeholder="Cliente" value="{{ request.GET.cliente }}">
+    <input type="text" name="vendedor" placeholder="Vendedor (usuario)" value="{{ request.GET.vendedor }}">
     <select name="tipo_documento">
       <option value="">Venda e Orcamento</option>
       {% for value, label in tipo_documento_choices %}
@@ -34,6 +35,7 @@
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Tipo</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Unidade</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Cliente</th>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Vendedor</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Itens</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Status</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Total</th>
@@ -47,6 +49,7 @@
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.get_tipo_documento_display }}</td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.get_unidade_saida_display }}</td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.cliente.nome }}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{% if venda.vendedor %}{{ venda.vendedor.username }}{% else %}-{% endif %}</td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;min-width:320px;">
             <table style="width:100%;border-collapse:collapse;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
               <thead>
@@ -76,7 +79,7 @@
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">R$ {{ venda.total_final }}</td>
         </tr>
       {% empty %}
-        <tr><td colspan="8" style="padding:10px;">Nenhuma venda encontrada.</td></tr>
+        <tr><td colspan="9" style="padding:10px;">Nenhuma venda encontrada.</td></tr>
       {% endfor %}
     </tbody>
   </table>

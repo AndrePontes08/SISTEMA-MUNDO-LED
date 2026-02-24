@@ -33,7 +33,7 @@ class VendasServiceTest(TestCase):
         self.produto = Produto.objects.create(nome="Produto Venda", sku="VEN-1", ativo=True)
         registrar_entrada(produto=self.produto, quantidade=Decimal("10.000"))
 
-    def _criar_venda_base(self, tipo_pagamento=TipoPagamentoChoices.AVISTA, parcelas=1) -> Venda:
+    def _criar_venda_base(self, tipo_pagamento=TipoPagamentoChoices.ESPECIE, parcelas=1) -> Venda:
         return criar_venda_com_itens(
             cliente=self.cliente,
             vendedor=self.user,
@@ -67,7 +67,7 @@ class VendasServiceTest(TestCase):
             cliente=self.cliente,
             vendedor=self.user,
             data_venda=timezone.localdate(),
-            tipo_pagamento=TipoPagamentoChoices.AVISTA,
+            tipo_pagamento=TipoPagamentoChoices.ESPECIE,
             numero_parcelas=1,
             intervalo_parcelas_dias=30,
             acrescimo=Decimal("0.00"),
@@ -97,7 +97,7 @@ class VendasServiceTest(TestCase):
         self.assertEqual(VendaMovimentoEstoque.objects.filter(venda=venda, tipo="SAIDA").count(), 1)
 
     def test_gera_recebiveis_para_venda_a_prazo(self):
-        venda = self._criar_venda_base(tipo_pagamento=TipoPagamentoChoices.PARCELADO, parcelas=3)
+        venda = self._criar_venda_base(tipo_pagamento=TipoPagamentoChoices.CREDITO_LOJA, parcelas=3)
         venda.status = StatusVendaChoices.CONFIRMADA
         venda.primeiro_vencimento = timezone.localdate()
         venda.save(update_fields=["status", "primeiro_vencimento"])
@@ -115,7 +115,7 @@ class VendasServiceTest(TestCase):
         self.assertEqual(total, venda.total_final)
 
     def test_cancelamento_reverte_estoque_e_recebiveis(self):
-        venda = self._criar_venda_base(tipo_pagamento=TipoPagamentoChoices.PARCELADO, parcelas=2)
+        venda = self._criar_venda_base(tipo_pagamento=TipoPagamentoChoices.CREDITO_LOJA, parcelas=2)
         venda.status = StatusVendaChoices.CONFIRMADA
         venda.primeiro_vencimento = timezone.localdate()
         venda.save(update_fields=["status", "primeiro_vencimento"])
@@ -134,7 +134,7 @@ class VendasServiceTest(TestCase):
         )
 
     def test_idempotencia_faturamento(self):
-        venda = self._criar_venda_base(tipo_pagamento=TipoPagamentoChoices.PARCELADO_BOLETO, parcelas=2)
+        venda = self._criar_venda_base(tipo_pagamento=TipoPagamentoChoices.BOLETO, parcelas=2)
         venda.status = StatusVendaChoices.CONFIRMADA
         venda.primeiro_vencimento = timezone.localdate()
         venda.save(update_fields=["status", "primeiro_vencimento"])
@@ -296,12 +296,87 @@ class VendasViewUXTest(TestCase):
         )
         self.assertEqual(response.status_code, 302)
 
+    def test_desconto_em_percentual_abate_total_final(self):
+        self.client.force_login(self.vendedor)
+        response = self.client.post(
+            reverse("vendas:venda_create"),
+            data={
+                "tipo_documento": "VENDA",
+                "cliente": str(self.cliente.id),
+                "vendedor": str(self.vendedor.id),
+                "unidade_saida": "LOJA_1",
+                "data_venda": timezone.localdate().isoformat(),
+                "tipo_pagamento": "AVISTA",
+                "numero_parcelas": "1",
+                "intervalo_parcelas_dias": "30",
+                "primeiro_vencimento": "",
+                "acrescimo": "0.00",
+                "observacoes": "desconto percentual",
+                "itens-TOTAL_FORMS": "1",
+                "itens-INITIAL_FORMS": "0",
+                "itens-MIN_NUM_FORMS": "0",
+                "itens-MAX_NUM_FORMS": "1000",
+                "itens-0-produto": str(self.produto.id),
+                "itens-0-quantidade": "2.000",
+                "itens-0-preco_unitario": "100.00",
+                "itens-0-desconto": "10.00",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        venda = Venda.objects.latest("id")
+        self.assertEqual(venda.desconto_total, Decimal("20.00"))
+        self.assertEqual(venda.total_final, Decimal("180.00"))
+
+    def test_historico_filtra_por_vendedor(self):
+        criar_venda_com_itens(
+            cliente=self.cliente,
+            vendedor=self.vendedor,
+            data_venda=timezone.localdate(),
+            tipo_pagamento=TipoPagamentoChoices.ESPECIE,
+            numero_parcelas=1,
+            intervalo_parcelas_dias=30,
+            acrescimo=Decimal("0.00"),
+            observacoes="venda vendedor 1",
+            itens=[
+                ItemVendaPayload(
+                    produto=self.produto,
+                    quantidade=Decimal("1.000"),
+                    preco_unitario=Decimal("50.00"),
+                    desconto=Decimal("0.00"),
+                )
+            ],
+        )
+        outro = get_user_model().objects.create_user("outro_vendedor", "outro@example.com", "pass")
+        criar_venda_com_itens(
+            cliente=self.cliente,
+            vendedor=outro,
+            data_venda=timezone.localdate(),
+            tipo_pagamento=TipoPagamentoChoices.ESPECIE,
+            numero_parcelas=1,
+            intervalo_parcelas_dias=30,
+            acrescimo=Decimal("0.00"),
+            observacoes="venda vendedor 2",
+            itens=[
+                ItemVendaPayload(
+                    produto=self.produto,
+                    quantidade=Decimal("1.000"),
+                    preco_unitario=Decimal("60.00"),
+                    desconto=Decimal("0.00"),
+                )
+            ],
+        )
+        self.client.force_login(self.gerente)
+        resp = self.client.get(reverse("vendas:venda_historico"), {"vendedor": "vend"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "vend</td>")
+        self.assertNotContains(resp, "outro_vendedor</td>")
+
     def test_alteracao_registra_log_no_historico(self):
         venda = criar_venda_com_itens(
             cliente=self.cliente,
             vendedor=self.gerente,
             data_venda=timezone.localdate(),
-            tipo_pagamento=TipoPagamentoChoices.AVISTA,
+            tipo_pagamento=TipoPagamentoChoices.ESPECIE,
             numero_parcelas=1,
             intervalo_parcelas_dias=30,
             acrescimo=Decimal("0.00"),
@@ -352,7 +427,7 @@ class VendasViewUXTest(TestCase):
             cliente=self.cliente,
             vendedor=self.gerente,
             data_venda=timezone.localdate(),
-            tipo_pagamento=TipoPagamentoChoices.AVISTA,
+            tipo_pagamento=TipoPagamentoChoices.ESPECIE,
             numero_parcelas=1,
             intervalo_parcelas_dias=30,
             acrescimo=Decimal("0.00"),

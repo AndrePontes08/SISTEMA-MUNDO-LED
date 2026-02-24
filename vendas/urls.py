@@ -20,6 +20,7 @@ app_name = "vendas"
 
 urlpatterns = [
     path("", VendaListView.as_view(), name="venda_list"),
+    path("historico/", VendaListView.as_view(), name="venda_historico"),
     path("dashboard/", VendasDashboardView.as_view(), name="dashboard"),
     path("nova/", VendaCreateView.as_view(), name="venda_create"),
     path("<int:pk>/", VendaDetailView.as_view(), name="venda_detail"),

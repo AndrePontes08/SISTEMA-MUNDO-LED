@@ -247,7 +247,7 @@ def faturar_venda(venda: Venda, usuario=None) -> FaturamentoResult:
         )
         movimentos_criados += 1
 
-    eh_prazo = venda.tipo_pagamento in (TipoPagamentoChoices.PARCELADO, TipoPagamentoChoices.PARCELADO_BOLETO)
+    eh_prazo = venda.tipo_pagamento in (TipoPagamentoChoices.CREDITO_LOJA, TipoPagamentoChoices.BOLETO)
     if eh_prazo:
         parcelas = max(1, venda.numero_parcelas or 1)
         valores = _parcelar_valor(venda.total_final, parcelas)
@@ -281,7 +281,7 @@ def faturar_venda(venda: Venda, usuario=None) -> FaturamentoResult:
                     data_vencimento=data_venc,
                 )
 
-            if venda.tipo_pagamento == TipoPagamentoChoices.PARCELADO_BOLETO:
+            if venda.tipo_pagamento == TipoPagamentoChoices.BOLETO:
                 numero_boleto = f"VD{venda.id:08d}-{numero_parcela:02d}"
                 boleto, created = Boleto.objects.get_or_create(
                     numero_boleto=numero_boleto,
