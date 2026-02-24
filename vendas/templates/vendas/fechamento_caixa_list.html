@@ -41,6 +41,7 @@
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Vendas</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Receita</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Descontos</th>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Totais por pagamento</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Gerado por</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Gerado em</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Ações</th>
@@ -53,6 +54,13 @@
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ fechamento.total_vendas }}</td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ fechamento.total_receita|br_currency }}</td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ fechamento.total_descontos|br_currency }}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
+            {% for pagamento, valor in fechamento.totais_por_pagamento.items %}
+              <div>{{ pagamento }}: {{ valor|br_currency }}</div>
+            {% empty %}
+              -
+            {% endfor %}
+          </td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{% if fechamento.criado_por %}{{ fechamento.criado_por.username }}{% else %}-{% endif %}</td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ fechamento.criado_em|date:"d/m/Y H:i" }}</td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
@@ -60,7 +68,7 @@
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="7" style="padding:10px;">Nenhum fechamento encontrado.</td></tr>
+        <tr><td colspan="8" style="padding:10px;">Nenhum fechamento encontrado.</td></tr>
       {% endfor %}
     </tbody>
   </table>

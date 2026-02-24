@@ -12,7 +12,7 @@
   <p><strong>Unidade de saída:</strong> {{ venda.unidade_saida|unit_label }}</p>
   <p><strong>Tipo:</strong> {{ venda.get_tipo_documento_display }}</p>
   <p><strong>Status:</strong> {{ venda.get_status_display }}</p>
-  <p><strong>Pagamento:</strong> {{ venda.get_tipo_pagamento_display }}</p>
+  <p><strong>Pagamento:</strong> {{ venda.tipo_pagamento|payment_label }}</p>
   <p><strong>Total:</strong> {{ venda.total_final|br_currency }}</p>
 
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0;">

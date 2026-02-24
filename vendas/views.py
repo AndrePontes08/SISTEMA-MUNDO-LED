@@ -18,7 +18,7 @@ from django.views.generic import CreateView, DetailView, ListView, TemplateView,
 
 from core.services.paginacao import get_pagination_params
 from core.services.permissoes import GroupRequiredMixin
-from core.services.formato_brl import format_brl, unit_label
+from core.services.formato_brl import format_brl, payment_label, unit_label
 from vendas.forms import CancelarVendaForm, FechamentoCaixaForm, ItemVendaFormSet, VendaForm
 from vendas.models import (
     FechamentoCaixaDiario,
@@ -103,7 +103,7 @@ def _pdf_business_lines(venda: Venda) -> list[str]:
         f"Data emissao: {venda.data_venda:%d/%m/%Y}",
         f"Validade da proposta: {validade}",
         f"Vendedor responsavel: {venda.vendedor or '-'}",
-        f"Pagamento: {venda.get_tipo_pagamento_display()} | Status: {venda.get_status_display()}",
+        f"Pagamento: {payment_label(venda.tipo_pagamento)} | Status: {venda.get_status_display()}",
         f"Parcelamento: {parcelamento}",
         "",
         "ITENS",
@@ -216,7 +216,7 @@ class VendaListView(VendasAccessMixin, ListView):
         querydict.pop("page", None)
         ctx["status_choices"] = StatusVendaChoices.choices
         ctx["tipo_documento_choices"] = TipoDocumentoVendaChoices.choices
-        ctx["tipo_pagamento_choices"] = TipoPagamentoChoices.choices
+        ctx["tipo_pagamento_choices"] = [(value, payment_label(value)) for value, _ in TipoPagamentoChoices.choices]
         ctx["resumo_filtrado"] = resumo_filtrado
         ctx["querystring"] = querydict.urlencode()
         ctx["dashboard"] = VendasStatisticsService.resumo(periodo_dias=periodo_dias)
@@ -380,7 +380,7 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
 
     def form_valid(self, form):
         if self.object.status in (StatusVendaChoices.FATURADA, StatusVendaChoices.FINALIZADA, StatusVendaChoices.CANCELADA):
-            messages.error(self.request, "Nao e permitido editar venda nesse status.")
+            messages.error(self.request, "Não é permitido editar venda nesse status.")
             return redirect(reverse("vendas:venda_detail", kwargs={"pk": self.object.pk}))
 
         ctx = self.get_context_data()
@@ -564,9 +564,9 @@ class OrcamentoConverterView(VendasAccessMixin, View):
         venda = Venda.objects.get(pk=kwargs["pk"])
         try:
             converter_orcamento_em_venda(venda, request.user)
-            messages.success(request, "Orcamento convertido em venda.")
+            messages.success(request, "Orçamento convertido em venda.")
         except Exception as exc:
-            messages.error(request, f"Falha ao converter orcamento: {exc}")
+            messages.error(request, f"Falha ao converter orçamento: {exc}")
         return redirect("vendas:venda_detail", pk=venda.pk)
 
 
@@ -639,7 +639,7 @@ class VendaPDFView(VendasAccessMixin, View):
             pdf.drawString(left + 26 * mm, height - 19 * mm, "MUNDO LED")
             pdf.setFont("Helvetica", 10)
             pdf.setFillColor(colors.HexColor("#374151"))
-            pdf.drawString(left + 26 * mm, height - 25 * mm, "Documento comercial de venda/orcamento")
+            pdf.drawString(left + 26 * mm, height - 25 * mm, "Documento comercial de venda/orçamento")
             pdf.setFillColor(colors.HexColor("#111827"))
             pdf.setFont("Helvetica-Bold", 11)
             pdf.drawRightString(right, height - 18 * mm, venda.codigo_identificacao)
@@ -670,7 +670,7 @@ class VendaPDFView(VendasAccessMixin, View):
             pdf.drawString(left + 3 * mm, info_top - 36 * mm, f"Data: {venda.data_venda:%d/%m/%Y}  |  Validade: {validade}")
 
             col2 = left + 105 * mm
-            pdf.drawString(col2, info_top - 12 * mm, f"Forma pagto: {venda.get_tipo_pagamento_display()}")
+            pdf.drawString(col2, info_top - 12 * mm, f"Forma de pagamento: {payment_label(venda.tipo_pagamento)}")
             pdf.drawString(col2, info_top - 18 * mm, f"Parcelamento: {parcelamento}")
             if venda.primeiro_vencimento:
                 pdf.drawString(col2, info_top - 24 * mm, f"1 vencimento: {venda.primeiro_vencimento:%d/%m/%Y}")
@@ -773,7 +773,7 @@ class VendaPDFView(VendasAccessMixin, View):
             pdf.drawString(left, y, "3) Garantia conforme politica interna e fabricante.")
             y -= 8 * mm
             pdf.setFont("Helvetica-Bold", 11)
-            pdf.drawString(left, y, "Observacoes")
+            pdf.drawString(left, y, "Observações")
             y -= 6 * mm
             pdf.setFont("Helvetica", 10)
             obs_lines = wrap_text(pdf, venda.observacoes or "-", max_width=right - left, font_size=10)

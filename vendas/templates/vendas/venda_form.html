@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Venda{% endblock %}
-{% block page_title %}Venda / Orcamento{% endblock %}
+{% block page_title %}Venda / Orçamento{% endblock %}
 
 {% block content %}
 <div class="card">
@@ -59,8 +59,8 @@
       <div class="msg error" style="margin-top:10px;">{{ form.non_field_errors|striptags }}</div>
     {% endif %}
 
-    <h3 style="margin-top:18px;">Itens da venda / orcamento</h3>
-    <p class="muted">Adicione quantos produtos forem necessarios. O desconto por item e percentual (%). Acima de 10% exige autorizacao de administrador/gerente.</p>
+    <h3 style="margin-top:18px;">Itens da venda / orçamento</h3>
+    <p class="muted">Adicione quantos produtos forem necessários. O desconto por item é percentual (%). Acima de 10% exige autorização de administrador/gerente.</p>
     {{ itens_formset.management_form }}
     <table style="width:100%;border-collapse:collapse;" id="itens-table">
       <thead>
@@ -110,10 +110,10 @@
     </div>
 
     <div style="margin-top:14px;padding:12px;border:1px solid #e5e7eb;border-radius:10px;">
-      <strong>Autorizacao de desconto acima de 10%</strong>
+      <strong>Autorização de desconto acima de 10%</strong>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:8px;">
         <div>
-          <label for="id_desconto_autorizador" style="display:block;font-weight:600;margin-bottom:4px;">Usuario autorizador</label>
+          <label for="id_desconto_autorizador" style="display:block;font-weight:600;margin-bottom:4px;">Usuário autorizador</label>
           <input id="id_desconto_autorizador" name="desconto_autorizador" type="text" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d1d5db;">
         </div>
         <div>

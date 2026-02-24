@@ -43,7 +43,7 @@
   <table style="width:100%;border-collapse:collapse;">
     <thead>
       <tr>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Codigo</th>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Código</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Data</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Tipo</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Unidade</th>
@@ -92,7 +92,7 @@
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.total_final|br_currency }}</td>
         </tr>
       {% empty %}
-        <tr><td colspan="9" style="padding:10px;">Nenhuma venda encontrada.</td></tr>
+        <tr><td colspan="9" style="padding:10px;">Nenhuma venda encontrada para os filtros aplicados.</td></tr>
       {% endfor %}
     </tbody>
   </table>

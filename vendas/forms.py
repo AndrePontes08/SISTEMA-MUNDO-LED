@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.forms import inlineformset_factory
 from django.utils import timezone
 
+from core.services.formato_brl import payment_label
 from vendas.models import ItemVenda, TipoPagamentoChoices, Venda
 
 
@@ -34,6 +35,11 @@ class VendaForm(forms.ModelForm):
                 self.fields["vendedor"].queryset = user_model.objects.filter(pk=self.user.pk)
                 self.fields["vendedor"].initial = self.user
                 self.fields["vendedor"].disabled = True
+
+        self.fields["tipo_pagamento"].choices = [
+            (value, payment_label(value))
+            for value, _label in self.fields["tipo_pagamento"].choices
+        ]
 
     class Meta:
         model = Venda

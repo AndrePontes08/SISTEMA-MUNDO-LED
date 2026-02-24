@@ -5,11 +5,11 @@ from decimal import Decimal
 from typing import Any
 
 from django.db import transaction
-from django.db.models import Sum
+from django.conf import settings
 from django.utils import timezone
 
-from core.services.formato_brl import format_brl, unit_label
-from vendas.models import FechamentoCaixaDiario, StatusVendaChoices, Venda
+from core.services.formato_brl import format_brl, payment_label, unit_label
+from vendas.models import FechamentoCaixaDiario, StatusVendaChoices, TipoDocumentoVendaChoices, Venda
 
 
 def _build_simple_pdf(lines: list[str]) -> bytes:
@@ -52,8 +52,9 @@ def _payload_dia(data_referencia) -> dict[str, Any]:
         .prefetch_related("itens__produto")
         .filter(
             data_venda=data_referencia,
-            status__in=[StatusVendaChoices.FATURADA, StatusVendaChoices.FINALIZADA],
+            tipo_documento=TipoDocumentoVendaChoices.VENDA,
         )
+        .exclude(status=StatusVendaChoices.CANCELADA)
         .order_by("id")
     )
     vendas = list(vendas_qs)
@@ -66,7 +67,7 @@ def _payload_dia(data_referencia) -> dict[str, Any]:
     for venda in vendas:
         total_receita += venda.total_final or Decimal("0.00")
         total_descontos += venda.desconto_total or Decimal("0.00")
-        label_pagto = venda.get_tipo_pagamento_display()
+        label_pagto = payment_label(venda.tipo_pagamento)
         totais_pagamento[label_pagto] = totais_pagamento.get(label_pagto, Decimal("0.00")) + (venda.total_final or Decimal("0.00"))
 
         itens = []
@@ -89,6 +90,7 @@ def _payload_dia(data_referencia) -> dict[str, Any]:
                 "vendedor": venda.vendedor.username if venda.vendedor else "-",
                 "unidade": unit_label(venda.unidade_saida),
                 "pagamento": label_pagto,
+                "status": venda.get_status_display(),
                 "desconto_total": str(venda.desconto_total or Decimal("0.00")),
                 "total_final": str(venda.total_final or Decimal("0.00")),
                 "observacoes": venda.observacoes or "",
@@ -110,61 +112,154 @@ def _payload_dia(data_referencia) -> dict[str, Any]:
 def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
     try:
         from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
         from reportlab.lib.units import mm
         from reportlab.pdfgen import canvas
 
         buffer = io.BytesIO()
         pdf = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
-        y = height - 15 * mm
+        left = 12 * mm
+        right = width - 12 * mm
+        logo_candidates = [
+            settings.BASE_DIR / "core" / "static" / "core" / "img" / "logo_mundo_led.png",
+            settings.BASE_DIR / "core" / "static" / "core" / "img" / "logo.jpg",
+        ]
+        logo_path = None
+        for candidate in logo_candidates:
+            if candidate.exists():
+                logo_path = str(candidate)
+                break
 
-        def draw_line(text: str, font="Helvetica", size=9, step=5):
-            nonlocal y
-            if y < 18 * mm:
-                pdf.showPage()
-                y = height - 15 * mm
-            pdf.setFont(font, size)
-            pdf.drawString(12 * mm, y, text)
-            y -= step * mm
+        header_bottom = height - 41 * mm
+        if logo_path:
+            try:
+                pdf.drawImage(
+                    logo_path,
+                    left,
+                    height - 35 * mm,
+                    width=22 * mm,
+                    height=22 * mm,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+            except Exception:
+                pass
+        pdf.setFillColor(colors.HexColor("#111827"))
+        pdf.setFont("Helvetica-Bold", 18)
+        pdf.drawString(left + 26 * mm, height - 19 * mm, "MUNDO LED")
+        pdf.setFont("Helvetica", 10)
+        pdf.setFillColor(colors.HexColor("#374151"))
+        pdf.drawString(left + 26 * mm, height - 25 * mm, "Fechamento diário de caixa")
+        pdf.setFillColor(colors.HexColor("#111827"))
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawRightString(right, height - 18 * mm, f"Data: {payload['data_referencia']}")
+        pdf.setFont("Helvetica", 9)
+        pdf.drawRightString(right, height - 25 * mm, f"Gerado em {timezone.localtime():%d/%m/%Y %H:%M}")
+        pdf.setStrokeColor(colors.HexColor("#d1d5db"))
+        pdf.line(left, header_bottom, right, header_bottom)
 
-        draw_line("MUNDO LED - FECHAMENTO DIARIO DE CAIXA", font="Helvetica-Bold", size=12, step=6)
-        draw_line(f"Data de referencia: {payload['data_referencia']}", size=10)
-        draw_line("", step=2)
-        draw_line("SECAO 1 - DETALHAMENTO DAS VENDAS", font="Helvetica-Bold", size=10)
+        y = header_bottom - 8 * mm
+
+        # Bloco de resumo do dia
+        resumo_top = y
+        resumo_bottom = y - 28 * mm
+        pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
+        pdf.roundRect(left, resumo_bottom, right - left, resumo_top - resumo_bottom, 3, fill=0, stroke=1)
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(left + 3 * mm, resumo_top - 6 * mm, "Resumo do dia")
+        pdf.setFont("Helvetica", 10)
+        pdf.drawString(left + 3 * mm, resumo_top - 13 * mm, f"Total de vendas: {payload['total_vendas']}")
+        pdf.drawString(left + 3 * mm, resumo_top - 19 * mm, f"Descontos totais: {format_brl(payload['total_descontos'])}")
+        pdf.setFont("Helvetica-Bold", 12)
+        pdf.drawRightString(right - 3 * mm, resumo_top - 13 * mm, f"Receita total: {format_brl(payload['total_receita'])}")
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.drawString(left + 3 * mm, resumo_top - 25 * mm, "Total por forma de pagamento:")
+        pay_line = " | ".join([f"{k}: {format_brl(v)}" for k, v in payload["totais_por_pagamento"].items()]) or "-"
+        pdf.setFont("Helvetica", 9)
+        pdf.drawString(left + 52 * mm, resumo_top - 25 * mm, pay_line[:120])
+
+        y = resumo_bottom - 8 * mm
+
+        # Seção 1 - detalhamento das vendas
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(left, y, "Seção 1 - Vendas do dia")
+        y -= 6 * mm
 
         for venda in payload["vendas"]:
-            draw_line(
-                f"Venda {venda['codigo']} | Cliente: {venda['cliente']} | Unidade: {venda['unidade']} | "
-                f"Pagamento: {venda['pagamento']}",
-                size=9,
-            )
-            draw_line(
-                f"Vendedor: {venda['vendedor']} | Desconto: {format_brl(venda['desconto_total'])} | "
-                f"Total: {format_brl(venda['total_final'])}",
-                size=9,
-            )
-            for item in venda["itens"]:
-                draw_line(
-                    (
-                        f"  - {item['produto']} | Qtd {item['quantidade']} | Unit {format_brl(item['preco_unitario'])} | "
-                        f"Desc {format_brl(item['desconto'])} | Subtotal {format_brl(item['subtotal'])}"
-                    ),
-                    size=8,
-                    step=4.5,
-                )
-            if venda["observacoes"]:
-                draw_line(f"  Observacoes: {venda['observacoes']}", size=8, step=4.5)
-            draw_line("", step=1.6)
+            if y < 40 * mm:
+                pdf.showPage()
+                y = height - 20 * mm
+                pdf.setFont("Helvetica-Bold", 10)
+                pdf.drawString(left, y, f"MUNDO LED | Fechamento diário {payload['data_referencia']}")
+                y -= 7 * mm
 
-        draw_line("", step=2)
-        draw_line("SECAO 2 - RESUMO DO DIA", font="Helvetica-Bold", size=10)
-        draw_line(f"Total de vendas: {payload['total_vendas']}")
-        draw_line(f"Receita total: {format_brl(payload['total_receita'])}")
-        draw_line(f"Descontos totais: {format_brl(payload['total_descontos'])}")
-        draw_line("Totais por forma de pagamento:", font="Helvetica-Bold", size=9)
+            pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
+            bloco_h = 18 * mm
+            if venda["observacoes"]:
+                bloco_h += 5 * mm
+            pdf.roundRect(left, y - bloco_h, right - left, bloco_h, 2, fill=0, stroke=1)
+
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawString(left + 3 * mm, y - 5 * mm, f"Venda {venda['codigo']} | Cliente: {venda['cliente']}")
+            pdf.setFont("Helvetica", 9)
+            pdf.drawString(
+                left + 3 * mm,
+                y - 10 * mm,
+                f"Unidade: {venda['unidade']} | Vendedor: {venda['vendedor']} | Status: {venda['status']}",
+            )
+            pdf.drawString(
+                left + 3 * mm,
+                y - 14.5 * mm,
+                f"Pagamento: {venda['pagamento']} | Desconto: {format_brl(venda['desconto_total'])} | Total: {format_brl(venda['total_final'])}",
+            )
+            if venda["observacoes"]:
+                pdf.drawString(left + 3 * mm, y - 19 * mm, f"Observações: {venda['observacoes'][:90]}")
+            y -= bloco_h + 2.5 * mm
+
+            # Itens da venda
+            for item in venda["itens"]:
+                if y < 28 * mm:
+                    pdf.showPage()
+                    y = height - 20 * mm
+                    pdf.setFont("Helvetica-Bold", 10)
+                    pdf.drawString(left, y, f"MUNDO LED | Itens da venda {venda['codigo']}")
+                    y -= 7 * mm
+                pdf.setFont("Helvetica", 8.6)
+                pdf.drawString(
+                    left + 4 * mm,
+                    y,
+                    (
+                        f"- {item['produto']} | Qtd {item['quantidade']} | Unit {format_brl(item['preco_unitario'])} | "
+                        f"Desc {format_brl(item['desconto'])} | Subtotal {format_brl(item['subtotal'])}"
+                    )[:140],
+                )
+                y -= 4.5 * mm
+            y -= 1.5 * mm
+
+        # Seção 2 - resumo final
+        if y < 45 * mm:
+            pdf.showPage()
+            y = height - 20 * mm
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(left, y, "Seção 2 - Resumo consolidado")
+        y -= 6 * mm
+        pdf.setFont("Helvetica", 10)
+        pdf.drawString(left, y, f"Total de vendas: {payload['total_vendas']}")
+        y -= 5 * mm
+        pdf.drawString(left, y, f"Receita total: {format_brl(payload['total_receita'])}")
+        y -= 5 * mm
+        pdf.drawString(left, y, f"Descontos totais: {format_brl(payload['total_descontos'])}")
+        y -= 5 * mm
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.drawString(left, y, "Totais por forma de pagamento:")
+        y -= 5 * mm
+        pdf.setFont("Helvetica", 10)
         for pagamento, total in payload["totais_por_pagamento"].items():
-            draw_line(f"  - {pagamento}: {format_brl(total)}", size=9)
-        draw_line(f"Observacoes do fechamento: {observacoes or '-'}", size=9)
+            pdf.drawString(left + 4 * mm, y, f"- {pagamento}: {format_brl(total)}")
+            y -= 5 * mm
+        pdf.setFont("Helvetica", 10)
+        pdf.drawString(left, y, f"Observações do fechamento: {observacoes or '-'}")
 
         pdf.save()
         buffer.seek(0)

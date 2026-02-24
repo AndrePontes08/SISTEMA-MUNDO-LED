@@ -1,6 +1,6 @@
 from django import template
 
-from core.services.formato_brl import format_brl, format_number_brl, unit_label
+from core.services.formato_brl import format_brl, format_number_brl, payment_label, unit_label
 
 register = template.Library()
 
@@ -28,3 +28,9 @@ def get_item(dictionary, key):
 def unit_label_filter(value):
     """Converte identificador interno de unidade para rótulo comercial."""
     return unit_label(value)
+
+
+@register.filter(name="payment_label")
+def payment_label_filter(value):
+    """Converte código interno de pagamento para rótulo amigável."""
+    return payment_label(value)

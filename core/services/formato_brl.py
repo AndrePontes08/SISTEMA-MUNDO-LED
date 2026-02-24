@@ -55,3 +55,20 @@ def unit_label(value) -> str:
     if not raw:
         return "-"
     return UNIT_LABELS.get(raw, raw)
+
+
+PAYMENT_LABELS = {
+    "PIX": "PIX",
+    "CREDITO": "Crédito",
+    "DEBITO": "Débito",
+    "AVISTA": "Espécie",
+    "PARCELADO_BOLETO": "Boleto",
+    "PARCELADO": "Crédito na loja",
+}
+
+
+def payment_label(value) -> str:
+    raw = (str(value or "")).strip()
+    if not raw:
+        return "-"
+    return PAYMENT_LABELS.get(raw, raw)

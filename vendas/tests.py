@@ -537,4 +537,4 @@ class FechamentoCaixaTest(TestCase):
         self.client.force_login(self.gerente)
         resp = self.client.get(reverse("vendas:venda_historico"), {"tipo_pagamento": TipoPagamentoChoices.CREDITO})
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "CREDITO")
+        self.assertContains(resp, "Crédito")
