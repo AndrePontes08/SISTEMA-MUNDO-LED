@@ -1,11 +1,11 @@
 from django.urls import path
 from django.contrib.auth.views import (
-    LoginView, PasswordChangeView, PasswordChangeDoneView,
+    LoginView, PasswordChangeDoneView,
     PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView,
     PasswordResetCompleteView
 )
 
-from core.views import HomeView, CustomLogoutView, DocumentacaoView, healthz
+from core.views import HomeView, CustomLogoutView, DocumentacaoView, ForcedPasswordChangeView, healthz
 
 app_name = "core"
 
@@ -17,8 +17,12 @@ urlpatterns = [
     # Auth URLs
     path("accounts/login/", LoginView.as_view(), name="login"),
     path("accounts/logout/", CustomLogoutView.as_view(), name="logout", kwargs={"next_page": "/"}),
-    path("accounts/password_change/", PasswordChangeView.as_view(), name="password_change"),
-    path("accounts/password_change/done/", PasswordChangeDoneView.as_view(), name="password_change_done"),
+    path("accounts/password_change/", ForcedPasswordChangeView.as_view(), name="password_change"),
+    path(
+        "accounts/password_change/done/",
+        PasswordChangeDoneView.as_view(template_name="registration/password_change_done.html"),
+        name="password_change_done",
+    ),
     path("accounts/password_reset/", PasswordResetView.as_view(), name="password_reset"),
     path("accounts/password_reset/done/", PasswordResetDoneView.as_view(), name="password_reset_done"),
     path("accounts/reset/<uidb64>/<token>/", PasswordResetConfirmView.as_view(), name="password_reset_confirm"),

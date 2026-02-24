@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import os
 from datetime import timedelta
+from django.contrib import messages
+from django.contrib.auth.models import Group
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.views import LogoutView
+from django.contrib.auth.views import LogoutView, PasswordChangeView
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Value
 from django.views.generic import TemplateView, ListView
 from django.http import HttpResponse
+from django.urls import reverse_lazy
 from pathlib import Path
 
 from importadores.services.resultado_diario_service import ResultadoDiarioService
@@ -144,3 +147,16 @@ class DocumentacaoView(LoginRequiredMixin, TemplateView):
         
         context['doc_files'] = doc_files
         return context
+
+
+class ForcedPasswordChangeView(PasswordChangeView):
+    template_name = "registration/password_change_form.html"
+    success_url = reverse_lazy("core:password_change_done")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        grupo_forcar, _ = Group.objects.get_or_create(name="troca_senha_obrigatoria")
+        self.request.user.groups.remove(grupo_forcar)
+        self.request.session["senha_forcada_alertada"] = False
+        messages.success(self.request, "Senha alterada com sucesso.")
+        return response
