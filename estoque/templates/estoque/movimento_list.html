@@ -219,7 +219,7 @@
                                     {{ m.tipo }}
                                 </span>
                             </td>
-                            <td style="text-align: right;"><strong>{{ m.quantidade }}</strong></td>
+                            <td style="text-align: right;"><strong>{{ m.quantidade|br_number:0 }}</strong></td>
                             <td class="text-muted">{{ m.observacao|default:"—" }}</td>
                         </tr>
                     {% empty %}

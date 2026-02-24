@@ -70,7 +70,7 @@
       {% for item in venda.itens.all %}
       <tr>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.produto.nome }}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.quantidade }}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.quantidade|br_number:0 }}</td>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.preco_unitario|br_currency }}</td>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.desconto|br_currency }}</td>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item.subtotal|br_currency }}</td>

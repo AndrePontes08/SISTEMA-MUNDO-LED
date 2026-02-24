@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django import forms
 from django.forms import inlineformset_factory
 
@@ -63,6 +65,29 @@ class CompraForm(forms.ModelForm):
 
 
 class ItemCompraForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["quantidade"].widget.attrs.update({"step": "1", "min": "1"})
+        self.fields["preco_unitario"].widget.attrs.update({"step": "0.01", "min": "0"})
+
+    def clean_quantidade(self):
+        quantidade = self.cleaned_data.get("quantidade")
+        if quantidade is None:
+            return quantidade
+        if quantidade <= 0:
+            raise forms.ValidationError("Quantidade deve ser maior que zero.")
+        if quantidade != quantidade.to_integral_value():
+            raise forms.ValidationError("Quantidade deve ser um número inteiro.")
+        return quantidade.quantize(Decimal("1"))
+
+    def clean_preco_unitario(self):
+        preco = self.cleaned_data.get("preco_unitario")
+        if preco is None:
+            return preco
+        if preco < 0:
+            raise forms.ValidationError("Preço unitário não pode ser negativo.")
+        return preco.quantize(Decimal("0.01"))
+
     class Meta:
         model = ItemCompra
         fields = ["produto", "quantidade", "preco_unitario"]

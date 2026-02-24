@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load formatters %}
 
 {% block title %}Receber Compra #{{ compra.id }}{% endblock %}
 {% block page_title %}Conferencia de Recebimento{% endblock %}
@@ -23,7 +24,7 @@
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
     <div>
       <h2 style="margin:0;">Compra #{{ compra.id }} - {{ compra.fornecedor.nome }}</h2>
-      <div class="muted">Data da compra: {{ compra.data_compra|date:"d/m/Y" }} | Total: R$ {{ compra.valor_total }}</div>
+      <div class="muted">Data da compra: {{ compra.data_compra|date:"d/m/Y" }} | Total: {{ compra.valor_total|br_currency }}</div>
       <div class="muted">Aprovado por: {{ compra.aprovado_por|default:"-" }} | Em: {{ compra.aprovado_em|date:"d/m/Y H:i"|default:"-" }}</div>
     </div>
     <a class="btn" href="{% url 'estoque:recebimento_list' %}">Voltar para fila</a>
@@ -72,9 +73,9 @@
       {% for item in compra.itens.all %}
       <tr>
         <td>{{ item.produto.nome }}</td>
-        <td>{{ item.quantidade }}</td>
-        <td>R$ {{ item.preco_unitario }}</td>
-        <td>R$ {{ item.subtotal }}</td>
+        <td>{{ item.quantidade|br_number:0 }}</td>
+        <td>{{ item.preco_unitario|br_currency }}</td>
+        <td>{{ item.subtotal|br_currency }}</td>
       </tr>
       {% endfor %}
     </tbody>

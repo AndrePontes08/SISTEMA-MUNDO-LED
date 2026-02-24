@@ -85,6 +85,10 @@ class VendaForm(forms.ModelForm):
 class ItemVendaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["quantidade"].widget.attrs.setdefault("step", "1")
+        self.fields["quantidade"].widget.attrs.setdefault("min", "1")
+        self.fields["preco_unitario"].widget.attrs.setdefault("step", "0.01")
+        self.fields["preco_unitario"].widget.attrs.setdefault("min", "0")
         self.fields["desconto"].label = "Desconto (%)"
         self.fields["desconto"].help_text = "Informe percentual de desconto do item."
         self.fields["desconto"].widget.attrs.setdefault("step", "0.01")
@@ -101,6 +105,24 @@ class ItemVendaForm(forms.ModelForm):
                 self.initial["desconto"] = percentual
             else:
                 self.initial["desconto"] = Decimal("0.00")
+
+    def clean_quantidade(self):
+        quantidade = self.cleaned_data.get("quantidade")
+        if quantidade is None:
+            return quantidade
+        if quantidade <= 0:
+            raise forms.ValidationError("Quantidade deve ser maior que zero.")
+        if quantidade != quantidade.to_integral_value():
+            raise forms.ValidationError("Quantidade deve ser um número inteiro.")
+        return quantidade.quantize(Decimal("1"))
+
+    def clean_preco_unitario(self):
+        preco = self.cleaned_data.get("preco_unitario")
+        if preco is None:
+            return preco
+        if preco < 0:
+            raise forms.ValidationError("Preço unitário não pode ser negativo.")
+        return preco.quantize(Decimal("0.01"))
 
     def clean_desconto(self):
         percentual = self.cleaned_data.get("desconto") or Decimal("0.00")

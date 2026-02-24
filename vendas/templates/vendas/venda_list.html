@@ -76,7 +76,7 @@
                 {% for item in venda.itens.all|slice:":4" %}
                   <tr>
                     <td style="padding:6px;border-bottom:1px solid #eef2f7;">{{ item.produto.nome }}</td>
-                    <td style="padding:6px;text-align:right;border-bottom:1px solid #eef2f7;">{{ item.quantidade }}</td>
+                    <td style="padding:6px;text-align:right;border-bottom:1px solid #eef2f7;">{{ item.quantidade|br_number:0 }}</td>
                     <td style="padding:6px;text-align:right;border-bottom:1px solid #eef2f7;">{{ item.subtotal|br_currency }}</td>
                   </tr>
                 {% empty %}

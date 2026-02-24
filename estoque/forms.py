@@ -24,7 +24,7 @@ class MovimentoItemForm(forms.Form):
         queryset=Produto.objects.filter(ativo=True).order_by("nome"),
         empty_label="Selecione...",
     )
-    quantidade = forms.DecimalField(min_value=0.001, decimal_places=3, max_digits=14)
+    quantidade = forms.DecimalField(min_value=1, decimal_places=0, max_digits=14)
 
 
 MovimentoItemFormSet = formset_factory(
@@ -52,7 +52,7 @@ class TransferenciaItemForm(forms.Form):
         queryset=Produto.objects.filter(ativo=True).order_by("nome"),
         empty_label="Selecione...",
     )
-    quantidade = forms.DecimalField(min_value=0.001, decimal_places=3, max_digits=14)
+    quantidade = forms.DecimalField(min_value=1, decimal_places=0, max_digits=14)
 
 
 TransferenciaItemFormSet = formset_factory(
@@ -73,7 +73,7 @@ class ContagemRapidaItemForm(forms.Form):
         queryset=Produto.objects.filter(ativo=True).order_by("nome"),
         empty_label="Selecione...",
     )
-    quantidade_contada = forms.DecimalField(min_value=0, decimal_places=3, max_digits=14)
+    quantidade_contada = forms.DecimalField(min_value=0, decimal_places=0, max_digits=14)
 
 
 ContagemRapidaItemFormSet = formset_factory(
@@ -95,7 +95,7 @@ class SaidaOperacionalItemForm(forms.Form):
         queryset=Produto.objects.filter(ativo=True).order_by("nome"),
         empty_label="Selecione...",
     )
-    quantidade = forms.DecimalField(min_value=0.001, decimal_places=3, max_digits=14)
+    quantidade = forms.DecimalField(min_value=1, decimal_places=0, max_digits=14)
 
 
 SaidaOperacionalItemFormSet = formset_factory(

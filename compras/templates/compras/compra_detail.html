@@ -105,7 +105,7 @@
     <tbody>
     {% for it in compra.itens.all %}
       <tr>
-        <td>{{ it.produto.nome }}</td><td>{{ it.quantidade|br_number:3 }}</td><td>{{ it.preco_unitario|br_currency }}</td><td>{{ it.subtotal|br_currency }}</td>
+        <td>{{ it.produto.nome }}</td><td>{{ it.quantidade|br_number:0 }}</td><td>{{ it.preco_unitario|br_currency }}</td><td>{{ it.subtotal|br_currency }}</td>
         <td>{% if it.garantias.all %}{% for g in it.garantias.all %}<div class="muted">Ate {{ g.data_fim|date:"d/m/Y" }} {% if g.arquivo %}- <a href="{{ g.arquivo.url }}">arquivo</a>{% endif %}</div>{% endfor %}{% else %}<span class="muted">-</span>{% endif %}</td>
       </tr>
     {% endfor %}
