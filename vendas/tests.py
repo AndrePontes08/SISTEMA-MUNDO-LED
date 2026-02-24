@@ -235,6 +235,67 @@ class VendasViewUXTest(TestCase):
         self.assertEqual(venda.vendedor_id, self.vendedor.id)
         self.assertEqual(venda.data_venda, timezone.localdate())
 
+    def test_desconto_acima_de_10_exige_autorizacao(self):
+        self.client.force_login(self.vendedor)
+        before_count = Venda.objects.count()
+        response = self.client.post(
+            reverse("vendas:venda_create"),
+            data={
+                "tipo_documento": "VENDA",
+                "cliente": str(self.cliente.id),
+                "vendedor": str(self.vendedor.id),
+                "unidade_saida": "LOJA_1",
+                "data_venda": timezone.localdate().isoformat(),
+                "tipo_pagamento": "AVISTA",
+                "numero_parcelas": "1",
+                "intervalo_parcelas_dias": "30",
+                "primeiro_vencimento": "",
+                "acrescimo": "0.00",
+                "observacoes": "teste desconto",
+                "itens-TOTAL_FORMS": "1",
+                "itens-INITIAL_FORMS": "0",
+                "itens-MIN_NUM_FORMS": "0",
+                "itens-MAX_NUM_FORMS": "1000",
+                "itens-0-produto": str(self.produto.id),
+                "itens-0-quantidade": "1.000",
+                "itens-0-preco_unitario": "100.00",
+                "itens-0-desconto": "20.00",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Venda.objects.count(), before_count)
+        self.assertContains(response, "excede o limite de 10%")
+
+    def test_desconto_acima_de_10_com_autorizacao_admin(self):
+        self.client.force_login(self.vendedor)
+        response = self.client.post(
+            reverse("vendas:venda_create"),
+            data={
+                "tipo_documento": "VENDA",
+                "cliente": str(self.cliente.id),
+                "vendedor": str(self.vendedor.id),
+                "unidade_saida": "LOJA_1",
+                "data_venda": timezone.localdate().isoformat(),
+                "tipo_pagamento": "AVISTA",
+                "numero_parcelas": "1",
+                "intervalo_parcelas_dias": "30",
+                "primeiro_vencimento": "",
+                "acrescimo": "0.00",
+                "observacoes": "teste desconto autorizado",
+                "desconto_autorizador": self.gerente.username,
+                "desconto_senha": "pass",
+                "itens-TOTAL_FORMS": "1",
+                "itens-INITIAL_FORMS": "0",
+                "itens-MIN_NUM_FORMS": "0",
+                "itens-MAX_NUM_FORMS": "1000",
+                "itens-0-produto": str(self.produto.id),
+                "itens-0-quantidade": "1.000",
+                "itens-0-preco_unitario": "100.00",
+                "itens-0-desconto": "20.00",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
     def test_alteracao_registra_log_no_historico(self):
         venda = criar_venda_com_itens(
             cliente=self.cliente,

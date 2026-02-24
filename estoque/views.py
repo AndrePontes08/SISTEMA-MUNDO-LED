@@ -56,6 +56,14 @@ class EstoqueAccessMixin(GroupRequiredMixin):
     required_groups = ("admin/gestor", "compras/estoque", "estoquista")
 
 
+def _is_admin_autorizado(user) -> bool:
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser or user.groups.filter(name="admin/gestor").exists():
+        return True
+    return user.username.lower() in {"lucas", "tabatha"}
+
+
 class EstoqueDashboardView(EstoqueAccessMixin, TemplateView):
     template_name = "estoque/dashboard.html"
 
@@ -122,6 +130,10 @@ class EstoqueCompletoView(EstoqueAccessMixin, ListView):
     context_object_name = "configs"
 
     def post(self, request, *args, **kwargs):
+        if not _is_admin_autorizado(request.user):
+            messages.error(request, "Somente administradores autorizados podem alterar custos de produtos.")
+            return redirect("estoque:estoque_completo")
+
         form = ImportCustoEstoqueForm(request.POST, request.FILES)
         if not form.is_valid():
             messages.error(request, "Arquivo CSV inválido.")

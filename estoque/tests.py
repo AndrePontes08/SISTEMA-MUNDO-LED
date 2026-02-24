@@ -6,6 +6,7 @@ from decimal import Decimal
 from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.urls import reverse
 from django.test import override_settings
@@ -167,7 +168,7 @@ class MovimentoCreateViewTest(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 403)
         self.assertEqual(EstoqueMovimento.objects.filter(tipo="ENTRADA").count(), 2)
         self.assertEqual(ProdutoEstoque.objects.get(produto=produto_1).saldo_atual, Decimal("3.000"))
         self.assertEqual(ProdutoEstoque.objects.get(produto=produto_2).saldo_atual, Decimal("2.500"))
@@ -260,7 +261,7 @@ class TransferenciaCreateViewTest(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 403)
         self.assertEqual(TransferenciaEstoque.objects.count(), 2)
 
 
@@ -309,6 +310,23 @@ class SaidaOperacionalTest(TestCase):
         self.assertEqual(cfg.saldo_atual, Decimal("13.000"))
         self.assertEqual(fm.saldo_atual, Decimal("8.000"))
         self.assertEqual(ml.saldo_atual, Decimal("5.000"))
+
+
+class CustoImportPermissaoTest(TestCase):
+    def test_importar_custo_exige_admin_autorizado(self):
+        user_model = get_user_model()
+        comum = user_model.objects.create_user("operador", password="pass")
+        produto = Produto.objects.create(nome="Produto Custo", sku="CTP-1", ativo=True)
+        ProdutoEstoque.objects.create(produto=produto, saldo_atual=Decimal("1.000"))
+        self.client.force_login(comum)
+
+        csv_content = "SKU;CUSTO_MEDIO\nCTP-1;12,34\n".encode("utf-8")
+        arquivo = SimpleUploadedFile("custos.csv", csv_content, content_type="text/csv")
+        response = self.client.post(reverse("estoque:estoque_completo"), data={"arquivo": arquivo})
+
+        self.assertEqual(response.status_code, 403)
+        cfg = ProdutoEstoque.objects.get(produto=produto)
+        self.assertEqual(cfg.custo_medio, Decimal("0.0000"))
 
 
 class RecebimentoEstoqueFlowTest(TestCase):

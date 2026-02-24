@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import io
 from datetime import timedelta
+from decimal import Decimal
 
 from django.conf import settings
+from django.contrib.auth import authenticate
 from django.contrib import messages
 from django.db.models import Prefetch
 from django.http import FileResponse, HttpResponse
@@ -235,6 +237,8 @@ class VendaCreateView(VendasAccessMixin, CreateView):
         if not itens_validos:
             messages.error(self.request, "Adicione ao menos um produto para salvar.")
             return self.form_invalid(form)
+        if not self._validar_autorizacao_desconto(itens_validos):
+            return self.form_invalid(form)
 
         self.object = form.save(commit=False)
         if not self._is_manager():
@@ -245,11 +249,70 @@ class VendaCreateView(VendasAccessMixin, CreateView):
         formset.save()
         recalcular_totais(self.object)
         registrar_evento(self.object, "CRIACAO", self.request.user, "Venda criada pela interface")
+        if getattr(self, "_desconto_percentual", Decimal("0.00")) > Decimal("10.00"):
+            registrar_evento(
+                self.object,
+                "OUTRO",
+                self.request.user,
+                (
+                    f"Desconto acima do limite aprovado ({self._desconto_percentual:.2f}%). "
+                    f"Autorizado por: {self._desconto_autorizador.username}."
+                ),
+            )
         messages.success(self.request, "Venda criada com sucesso.")
         return redirect(self.get_success_url())
 
     def get_success_url(self):
         return reverse("vendas:venda_detail", kwargs={"pk": self.object.pk})
+
+    def _usuario_pode_autorizar_desconto(self, user) -> bool:
+        if not user or not user.is_authenticated:
+            return False
+        if user.is_superuser or user.groups.filter(name="admin/gestor").exists():
+            return True
+        return user.username.lower() in {"lucas", "tabatha"}
+
+    def _maior_percentual_desconto(self, itens_forms) -> Decimal:
+        maior = Decimal("0.00")
+        for item_form in itens_forms:
+            data = item_form.cleaned_data or {}
+            preco = data.get("preco_unitario") or Decimal("0.00")
+            desconto = data.get("desconto") or Decimal("0.00")
+            if preco <= 0 or desconto <= 0:
+                continue
+            percentual = ((desconto / preco) * Decimal("100.00")).quantize(Decimal("0.01"))
+            if percentual > maior:
+                maior = percentual
+        return maior
+
+    def _validar_autorizacao_desconto(self, itens_forms) -> bool:
+        self._desconto_percentual = self._maior_percentual_desconto(itens_forms)
+        self._desconto_autorizador = None
+        if self._desconto_percentual <= Decimal("10.00"):
+            return True
+
+        if self._usuario_pode_autorizar_desconto(self.request.user):
+            self._desconto_autorizador = self.request.user
+            return True
+
+        usuario_aut = (self.request.POST.get("desconto_autorizador") or "").strip()
+        senha_aut = (self.request.POST.get("desconto_senha") or "").strip()
+        if not usuario_aut or not senha_aut:
+            messages.error(
+                self.request,
+                (
+                    f"Desconto de {self._desconto_percentual:.2f}% excede o limite de 10%. "
+                    "Informe usuário e senha de administrador/gerente para autorizar."
+                ),
+            )
+            return False
+
+        autorizado = authenticate(self.request, username=usuario_aut, password=senha_aut)
+        if not self._usuario_pode_autorizar_desconto(autorizado):
+            messages.error(self.request, "Credencial de autorização inválida para desconto acima de 10%.")
+            return False
+        self._desconto_autorizador = autorizado
+        return True
 
 
 class VendaUpdateView(VendasAccessMixin, UpdateView):
@@ -284,6 +347,8 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
         if not itens_validos:
             messages.error(self.request, "Adicione ao menos um produto para salvar.")
             return self.form_invalid(form)
+        if not self._validar_autorizacao_desconto(itens_validos):
+            return self.form_invalid(form)
 
         before = self.get_object()
         change_log = self._build_change_log(before, form, formset)
@@ -300,6 +365,16 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
                 "OUTRO",
                 self.request.user,
                 "Alteracoes registradas: " + "; ".join(change_log),
+            )
+        if getattr(self, "_desconto_percentual", Decimal("0.00")) > Decimal("10.00"):
+            registrar_evento(
+                self.object,
+                "OUTRO",
+                self.request.user,
+                (
+                    f"Desconto acima do limite aprovado em edicao ({self._desconto_percentual:.2f}%). "
+                    f"Autorizado por: {self._desconto_autorizador.username}."
+                ),
             )
         messages.success(self.request, "Venda atualizada com sucesso.")
         return redirect(self.get_success_url())
@@ -355,6 +430,55 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
                 logs.append(f"Item {instance.id} alterado: {item_changes}")
 
         return logs
+
+    def _usuario_pode_autorizar_desconto(self, user) -> bool:
+        if not user or not user.is_authenticated:
+            return False
+        if user.is_superuser or user.groups.filter(name="admin/gestor").exists():
+            return True
+        return user.username.lower() in {"lucas", "tabatha"}
+
+    def _maior_percentual_desconto(self, itens_forms) -> Decimal:
+        maior = Decimal("0.00")
+        for item_form in itens_forms:
+            data = item_form.cleaned_data or {}
+            preco = data.get("preco_unitario") or Decimal("0.00")
+            desconto = data.get("desconto") or Decimal("0.00")
+            if preco <= 0 or desconto <= 0:
+                continue
+            percentual = ((desconto / preco) * Decimal("100.00")).quantize(Decimal("0.01"))
+            if percentual > maior:
+                maior = percentual
+        return maior
+
+    def _validar_autorizacao_desconto(self, itens_forms) -> bool:
+        self._desconto_percentual = self._maior_percentual_desconto(itens_forms)
+        self._desconto_autorizador = None
+        if self._desconto_percentual <= Decimal("10.00"):
+            return True
+
+        if self._usuario_pode_autorizar_desconto(self.request.user):
+            self._desconto_autorizador = self.request.user
+            return True
+
+        usuario_aut = (self.request.POST.get("desconto_autorizador") or "").strip()
+        senha_aut = (self.request.POST.get("desconto_senha") or "").strip()
+        if not usuario_aut or not senha_aut:
+            messages.error(
+                self.request,
+                (
+                    f"Desconto de {self._desconto_percentual:.2f}% excede o limite de 10%. "
+                    "Informe usuário e senha de administrador/gerente para autorizar."
+                ),
+            )
+            return False
+
+        autorizado = authenticate(self.request, username=usuario_aut, password=senha_aut)
+        if not self._usuario_pode_autorizar_desconto(autorizado):
+            messages.error(self.request, "Credencial de autorização inválida para desconto acima de 10%.")
+            return False
+        self._desconto_autorizador = autorizado
+        return True
 
 
 class VendaConfirmarView(VendasAccessMixin, View):
