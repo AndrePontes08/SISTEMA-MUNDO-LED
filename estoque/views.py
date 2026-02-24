@@ -16,14 +16,32 @@ from core.services.permissoes import GroupRequiredMixin
 from core.services.paginacao import get_pagination_params
 
 from estoque.forms import (
+    ContagemRapidaForm,
+    ContagemRapidaItemFormSet,
     MovimentoForm,
     MovimentoItemFormSet,
     ProdutoEstoqueForm,
+    SaidaOperacionalForm,
+    SaidaOperacionalItemFormSet,
     TransferenciaForm,
     TransferenciaItemFormSet,
 )
-from estoque.models import ProdutoEstoque, AlertaEstoque, StatusAlerta, EstoqueMovimento, TransferenciaEstoque
+from estoque.models import (
+    ProdutoEstoque,
+    AlertaEstoque,
+    StatusAlerta,
+    EstoqueMovimento,
+    ProdutoEstoqueUnidade,
+    SaidaOperacionalEstoque,
+    TransferenciaEstoque,
+    UnidadeLoja,
+)
+from estoque.services.contagem_service import (
+    aplicar_contagem_rapida,
+    garantir_estoque_unidades_produto,
+)
 from estoque.services.estoque_service import registrar_entrada, registrar_saida, registrar_ajuste
+from estoque.services.saida_operacional_service import registrar_saida_operacional_lote
 from estoque.services.integracao_compras import dar_entrada_por_compra
 from estoque.services.statistics_service import EstoqueStatisticsService
 from estoque.services.transferencias_service import transferir_lote_entre_unidades
@@ -66,11 +84,61 @@ class ProdutoEstoqueListView(EstoqueAccessMixin, ListView):
         return get_pagination_params(self.request).page_size
 
     def get_queryset(self):
+        qs = (
+            ProdutoEstoque.objects.select_related("produto")
+            .prefetch_related("produto__estoque_unidades")
+            .order_by("produto__nome")
+        )
+        q = (self.request.GET.get("q") or "").strip()
+        if q:
+            qs = qs.filter(produto__nome__icontains=q)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        for cfg in ctx["configs"]:
+            garantir_estoque_unidades_produto(cfg.produto)
+            saldo_fm = "0.000"
+            saldo_ml = "0.000"
+            rows = ProdutoEstoqueUnidade.objects.filter(produto=cfg.produto)
+            for row in rows:
+                if row.unidade == UnidadeLoja.LOJA_1:
+                    saldo_fm = str(row.saldo_atual)
+                elif row.unidade == UnidadeLoja.LOJA_2:
+                    saldo_ml = str(row.saldo_atual)
+            cfg.saldo_fm = saldo_fm
+            cfg.saldo_ml = saldo_ml
+        return ctx
+
+
+class EstoqueCompletoView(EstoqueAccessMixin, ListView):
+    model = ProdutoEstoque
+    template_name = "estoque/estoque_completo.html"
+    context_object_name = "configs"
+
+    def get_paginate_by(self, queryset):
+        return get_pagination_params(self.request).page_size
+
+    def get_queryset(self):
         qs = ProdutoEstoque.objects.select_related("produto").order_by("produto__nome")
         q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(produto__nome__icontains=q)
         return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        for cfg in ctx["configs"]:
+            garantir_estoque_unidades_produto(cfg.produto)
+            rows = ProdutoEstoqueUnidade.objects.filter(produto=cfg.produto)
+            cfg.saldo_fm = "0.000"
+            cfg.saldo_ml = "0.000"
+            for row in rows:
+                if row.unidade == UnidadeLoja.LOJA_1:
+                    cfg.saldo_fm = str(row.saldo_atual)
+                elif row.unidade == UnidadeLoja.LOJA_2:
+                    cfg.saldo_ml = str(row.saldo_atual)
+        return ctx
 
 
 class ProdutoEstoqueUpdateView(EstoqueAccessMixin, UpdateView):
@@ -396,3 +464,162 @@ class TransferenciaCreateView(EstoqueAccessMixin, TemplateView):
             ),
         )
         return redirect("estoque:transferencia_create")
+
+
+class ContagemRapidaView(EstoqueAccessMixin, TemplateView):
+    template_name = "estoque/contagem_rapida.html"
+    item_formset_prefix = "itens"
+
+    def _build_forms(self):
+        if self.request.method == "POST":
+            form = ContagemRapidaForm(self.request.POST)
+            formset = ContagemRapidaItemFormSet(self.request.POST, prefix=self.item_formset_prefix)
+            return form, formset
+        form = ContagemRapidaForm(initial={"data_contagem": timezone.localdate(), "unidade": UnidadeLoja.LOJA_1})
+        formset = ContagemRapidaItemFormSet(prefix=self.item_formset_prefix)
+        return form, formset
+
+    @staticmethod
+    def _extract_items(formset):
+        itens = []
+        for f in formset:
+            data = f.cleaned_data if hasattr(f, "cleaned_data") else {}
+            if not data or data.get("DELETE"):
+                continue
+            produto = data.get("produto")
+            quantidade_contada = data.get("quantidade_contada")
+            if produto is not None and quantidade_contada is not None:
+                itens.append({"produto": produto, "quantidade_contada": quantidade_contada})
+        return itens
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        form = kwargs.get("form")
+        formset = kwargs.get("formset")
+        if form is None or formset is None:
+            form, formset = self._build_forms()
+        ctx["form"] = form
+        ctx["formset"] = formset
+
+        unidade_raw = (
+            form.cleaned_data.get("unidade")
+            if form.is_bound and form.is_valid()
+            else (form["unidade"].value() or UnidadeLoja.LOJA_1)
+        )
+        try:
+            unidade = UnidadeLoja(unidade_raw)
+        except ValueError:
+            unidade = UnidadeLoja.LOJA_1
+        itens_unidade = (
+            ProdutoEstoqueUnidade.objects.select_related("produto")
+            .filter(unidade=unidade)
+            .order_by("produto__nome")[:120]
+        )
+        ctx["saldos_unidade"] = itens_unidade
+        ctx["unidade_label"] = unidade.label
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        form, formset = self._build_forms()
+        if not form.is_valid() or not formset.is_valid():
+            return self.render_to_response(self.get_context_data(form=form, formset=formset))
+
+        unidade = form.cleaned_data["unidade"]
+        itens = self._extract_items(formset)
+        if not itens:
+            messages.error(request, "Informe ao menos um produto com quantidade contada.")
+            return self.render_to_response(self.get_context_data(form=form, formset=formset))
+
+        try:
+            for item in itens:
+                garantir_estoque_unidades_produto(item["produto"])
+            result = aplicar_contagem_rapida(
+                unidade=unidade,
+                itens=itens,
+                usuario=request.user,
+                data_contagem=form.cleaned_data["data_contagem"],
+                observacao=form.cleaned_data.get("observacao") or "",
+            )
+        except Exception as exc:
+            messages.error(request, f"Erro ao aplicar contagem: {exc}")
+            return self.render_to_response(self.get_context_data(form=form, formset=formset))
+
+        messages.success(
+            request,
+            (
+                f"Contagem aplicada para {UnidadeLoja(unidade).label}. "
+                f"Itens processados: {result.total_itens}. Ajustados: {result.itens_ajustados}."
+            ),
+        )
+        return redirect("estoque:contagem_rapida")
+
+
+class SaidaOperacionalView(EstoqueAccessMixin, TemplateView):
+    template_name = "estoque/saida_operacional.html"
+    item_formset_prefix = "itens"
+
+    def _build_forms(self):
+        if self.request.method == "POST":
+            form = SaidaOperacionalForm(self.request.POST)
+            formset = SaidaOperacionalItemFormSet(self.request.POST, prefix=self.item_formset_prefix)
+            return form, formset
+        form = SaidaOperacionalForm(initial={"data_saida": timezone.localdate(), "unidade": UnidadeLoja.LOJA_1})
+        formset = SaidaOperacionalItemFormSet(prefix=self.item_formset_prefix)
+        return form, formset
+
+    @staticmethod
+    def _extract_items(formset):
+        itens = []
+        for f in formset:
+            data = f.cleaned_data if hasattr(f, "cleaned_data") else {}
+            if not data or data.get("DELETE"):
+                continue
+            produto = data.get("produto")
+            quantidade = data.get("quantidade")
+            if produto is not None and quantidade is not None:
+                itens.append({"produto": produto, "quantidade": quantidade})
+        return itens
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        form = kwargs.get("form")
+        formset = kwargs.get("formset")
+        if form is None or formset is None:
+            form, formset = self._build_forms()
+        ctx["form"] = form
+        ctx["formset"] = formset
+        ctx["ultimas_saidas"] = (
+            SaidaOperacionalEstoque.objects.select_related("produto", "usuario")
+            .order_by("-data_saida", "-id")[:60]
+        )
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        form, formset = self._build_forms()
+        if not form.is_valid() or not formset.is_valid():
+            return self.render_to_response(self.get_context_data(form=form, formset=formset))
+        itens = self._extract_items(formset)
+        if not itens:
+            messages.error(request, "Informe ao menos um item para a saída.")
+            return self.render_to_response(self.get_context_data(form=form, formset=formset))
+        try:
+            result = registrar_saida_operacional_lote(
+                unidade=form.cleaned_data["unidade"],
+                tipo=form.cleaned_data["tipo"],
+                itens=itens,
+                usuario=request.user,
+                data_saida=form.cleaned_data["data_saida"],
+                observacao=form.cleaned_data.get("observacao") or "",
+            )
+        except Exception as exc:
+            messages.error(request, f"Falha ao registrar saída: {exc}")
+            return self.render_to_response(self.get_context_data(form=form, formset=formset))
+
+        messages.success(
+            request,
+            (
+                "Saída registrada com sucesso. "
+                f"Itens processados: {result.total_itens}."
+            ),
+        )
+        return redirect("estoque:saida_operacional")

@@ -10,8 +10,9 @@ from django.utils import timezone
 
 from boletos.models import Boleto, StatusBoletoChoices
 from compras.models import Produto
-from estoque.models import ProdutoEstoque
+from estoque.models import ProdutoEstoque, ProdutoEstoqueUnidade, UnidadeLoja
 from estoque.services.estoque_service import registrar_entrada, registrar_saida
+from estoque.services.unidade_estoque_service import garantir_unidades_produto
 from financeiro.models import Recebivel, StatusRecebivelChoices
 from vendas.models import (
     ItemVenda,
@@ -196,10 +197,19 @@ def faturar_venda(venda: Venda, usuario=None) -> FaturamentoResult:
         for cfg in ProdutoEstoque.objects.select_for_update().filter(produto_id__in=produto_ids)
     }
     for item in itens:
+        garantir_unidades_produto(item.produto)
         cfg = cfg_map.get(item.produto_id)
         saldo = cfg.saldo_atual if cfg else Decimal("0.000")
         if saldo < (item.quantidade or Decimal("0.000")):
             raise ValueError(f"Saldo insuficiente para produto {item.produto.nome}.")
+        saldo_unidade = ProdutoEstoqueUnidade.objects.select_for_update().get(
+            produto=item.produto,
+            unidade=venda.unidade_saida or UnidadeLoja.LOJA_1,
+        )
+        if saldo_unidade.saldo_atual < (item.quantidade or Decimal("0.000")):
+            raise ValueError(
+                f"Saldo insuficiente em {venda.get_unidade_saida_display()} para produto {item.produto.nome}."
+            )
 
     movimentos_criados = 0
     recebiveis_criados = 0
@@ -217,8 +227,17 @@ def faturar_venda(venda: Venda, usuario=None) -> FaturamentoResult:
             produto=item.produto,
             quantidade=_to_dec_3(item.quantidade),
             data_movimento=venda.data_venda,
-            observacao=f"Saida por faturamento da venda #{venda.id}",
+            observacao=(
+                f"Saida por faturamento da venda #{venda.id} "
+                f"[{venda.get_unidade_saida_display()}]"
+            ),
         )
+        saldo_unidade = ProdutoEstoqueUnidade.objects.select_for_update().get(
+            produto=item.produto,
+            unidade=venda.unidade_saida or UnidadeLoja.LOJA_1,
+        )
+        saldo_unidade.saldo_atual = (saldo_unidade.saldo_atual - _to_dec_3(item.quantidade)).quantize(Decimal("0.001"))
+        saldo_unidade.save(update_fields=["saldo_atual", "atualizado_em"])
         VendaMovimentoEstoque.objects.create(
             venda=venda,
             item_venda=item,
@@ -354,8 +373,18 @@ def cancelar_venda(venda: Venda, usuario=None, motivo: str = "") -> Cancelamento
                 produto=registro.item_venda.produto,
                 quantidade=_to_dec_3(registro.quantidade),
                 data_movimento=timezone.localdate(),
-                observacao=f"Reversao por cancelamento da venda #{venda.id}",
+                observacao=(
+                    f"Reversao por cancelamento da venda #{venda.id} "
+                    f"[{venda.get_unidade_saida_display()}]"
+                ),
             )
+            garantir_unidades_produto(registro.item_venda.produto)
+            saldo_unidade = ProdutoEstoqueUnidade.objects.select_for_update().get(
+                produto=registro.item_venda.produto,
+                unidade=venda.unidade_saida or UnidadeLoja.LOJA_1,
+            )
+            saldo_unidade.saldo_atual = (saldo_unidade.saldo_atual + _to_dec_3(registro.quantidade)).quantize(Decimal("0.001"))
+            saldo_unidade.save(update_fields=["saldo_atual", "atualizado_em"])
             VendaMovimentoEstoque.objects.create(
                 venda=venda,
                 item_venda=registro.item_venda,

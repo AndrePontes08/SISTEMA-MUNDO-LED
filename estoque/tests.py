@@ -25,7 +25,9 @@ from estoque.models import (
 )
 from estoque.services.statistics_service import EstoqueStatisticsService
 from estoque.services.estoque_service import registrar_entrada, registrar_saida
+from estoque.services.contagem_service import aplicar_contagem_rapida
 from estoque.services.transferencias_service import transferir_entre_unidades, transferir_lote_entre_unidades
+from estoque.services.saida_operacional_service import registrar_saida_operacional_lote
 
 
 class EstoqueRegrasTest(TestCase):
@@ -260,6 +262,53 @@ class TransferenciaCreateViewTest(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(TransferenciaEstoque.objects.count(), 2)
+
+
+class ContagemRapidaTest(TestCase):
+    def test_contagem_rapida_ajusta_unidade_e_total(self):
+        produto = Produto.objects.create(nome="Produto Contagem", sku="CT-1", ativo=True)
+        ProdutoEstoque.objects.create(produto=produto, saldo_atual=Decimal("10.000"))
+        ProdutoEstoqueUnidade.objects.create(produto=produto, unidade=UnidadeLoja.LOJA_1, saldo_atual=Decimal("6.000"))
+        ProdutoEstoqueUnidade.objects.create(produto=produto, unidade=UnidadeLoja.LOJA_2, saldo_atual=Decimal("4.000"))
+
+        result = aplicar_contagem_rapida(
+            unidade=UnidadeLoja.LOJA_1,
+            itens=[{"produto": produto, "quantidade_contada": Decimal("8.500")}],
+            observacao="Inventario semanal",
+        )
+
+        self.assertEqual(result.total_itens, 1)
+        self.assertEqual(result.itens_ajustados, 1)
+        unidade_fm = ProdutoEstoqueUnidade.objects.get(produto=produto, unidade=UnidadeLoja.LOJA_1)
+        unidade_ml = ProdutoEstoqueUnidade.objects.get(produto=produto, unidade=UnidadeLoja.LOJA_2)
+        cfg = ProdutoEstoque.objects.get(produto=produto)
+        self.assertEqual(unidade_fm.saldo_atual, Decimal("8.500"))
+        self.assertEqual(unidade_ml.saldo_atual, Decimal("4.000"))
+        self.assertEqual(cfg.saldo_atual, Decimal("12.500"))
+
+
+class SaidaOperacionalTest(TestCase):
+    def test_saida_operacional_baixa_unidade_e_total(self):
+        produto = Produto.objects.create(nome="Produto Operacional", sku="OP-1", ativo=True)
+        ProdutoEstoque.objects.create(produto=produto, saldo_atual=Decimal("15.000"))
+        ProdutoEstoqueUnidade.objects.create(produto=produto, unidade=UnidadeLoja.LOJA_1, saldo_atual=Decimal("10.000"))
+        ProdutoEstoqueUnidade.objects.create(produto=produto, unidade=UnidadeLoja.LOJA_2, saldo_atual=Decimal("5.000"))
+
+        result = registrar_saida_operacional_lote(
+            unidade=UnidadeLoja.LOJA_1,
+            tipo="TROCA",
+            itens=[{"produto": produto, "quantidade": Decimal("2.000")}],
+            observacao="Troca balcão",
+        )
+
+        self.assertEqual(result.total_itens, 1)
+        self.assertEqual(result.itens_processados, 1)
+        cfg = ProdutoEstoque.objects.get(produto=produto)
+        fm = ProdutoEstoqueUnidade.objects.get(produto=produto, unidade=UnidadeLoja.LOJA_1)
+        ml = ProdutoEstoqueUnidade.objects.get(produto=produto, unidade=UnidadeLoja.LOJA_2)
+        self.assertEqual(cfg.saldo_atual, Decimal("13.000"))
+        self.assertEqual(fm.saldo_atual, Decimal("8.000"))
+        self.assertEqual(ml.saldo_atual, Decimal("5.000"))
 
 
 class RecebimentoEstoqueFlowTest(TestCase):

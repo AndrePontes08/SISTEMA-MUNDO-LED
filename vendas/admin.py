@@ -13,8 +13,8 @@ class ItemVendaInline(admin.TabularInline):
 
 @admin.register(Venda)
 class VendaAdmin(admin.ModelAdmin):
-    list_display = ("codigo_identificacao", "tipo_documento", "cliente", "status", "data_venda", "tipo_pagamento", "total_final", "vendedor")
-    list_filter = ("tipo_documento", "status", "tipo_pagamento", "data_venda")
+    list_display = ("codigo_identificacao", "tipo_documento", "cliente", "unidade_saida", "status", "data_venda", "tipo_pagamento", "total_final", "vendedor")
+    list_filter = ("tipo_documento", "unidade_saida", "status", "tipo_pagamento", "data_venda")
     search_fields = ("id", "cliente__nome", "cliente__nome_normalizado")
     autocomplete_fields = ("cliente", "vendedor")
     readonly_fields = ("subtotal", "desconto_total", "total_final", "criado_em", "atualizado_em")

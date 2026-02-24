@@ -239,8 +239,7 @@ class VendaCreateView(VendasAccessMixin, CreateView):
         self.object = form.save(commit=False)
         if not self._is_manager():
             self.object.vendedor = self.request.user
-        if not self.object.data_venda:
-            self.object.data_venda = timezone.localdate()
+        self.object.data_venda = timezone.localdate()
         self.object.save()
         formset.instance = self.object
         formset.save()
@@ -314,6 +313,7 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
             "tipo_documento": "Tipo",
             "cliente": "Cliente",
             "vendedor": "Vendedor",
+            "unidade_saida": "Unidade de saida",
             "data_venda": "Data da venda",
             "tipo_pagamento": "Pagamento",
             "numero_parcelas": "Parcelas",
@@ -635,5 +635,14 @@ class VendasDashboardView(VendasAccessMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         periodo = self.request.GET.get("periodo", "30")
         periodo_dias = int(periodo) if periodo.isdigit() else 30
-        ctx["dashboard"] = VendasStatisticsService.resumo(periodo_dias=periodo_dias)
+        dashboard = VendasStatisticsService.resumo(periodo_dias=periodo_dias)
+        ctx["dashboard"] = dashboard
+        max_hora = max((row["total"] for row in dashboard.get("vendas_por_hora", [])), default=0)
+        ctx["max_hora"] = max_hora if max_hora > 0 else 1
+        max_periodo = max(
+            dashboard.get("resumo_dia", {}).get("total_faturado", 0),
+            dashboard.get("resumo_mes", {}).get("total_faturado", 0),
+            dashboard.get("resumo_ano", {}).get("total_faturado", 0),
+        )
+        ctx["max_periodo"] = max_periodo if max_periodo > 0 else 1
         return ctx

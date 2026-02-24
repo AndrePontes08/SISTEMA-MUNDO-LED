@@ -15,6 +15,7 @@ class VendaForm(forms.ModelForm):
 
         if self.instance.pk is None:
             self.fields["data_venda"].initial = self.initial.get("data_venda") or timezone.localdate()
+        self.fields["data_venda"].disabled = True
 
         if self.user and self.user.is_authenticated:
             is_manager = self.user.is_superuser or self.user.groups.filter(name="admin/gestor").exists()
@@ -32,6 +33,7 @@ class VendaForm(forms.ModelForm):
             "tipo_documento",
             "cliente",
             "vendedor",
+            "unidade_saida",
             "data_venda",
             "tipo_pagamento",
             "numero_parcelas",
@@ -48,6 +50,7 @@ class VendaForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        cleaned["data_venda"] = self.instance.data_venda if self.instance.pk else timezone.localdate()
         tipo = cleaned.get("tipo_pagamento")
         parcelas = cleaned.get("numero_parcelas") or 1
         primeiro_vencimento = cleaned.get("primeiro_vencimento")

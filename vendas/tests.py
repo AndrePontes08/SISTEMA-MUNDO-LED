@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import Group
@@ -10,7 +11,7 @@ from django.utils import timezone
 
 from boletos.models import Cliente
 from compras.models import Compra, Fornecedor, ItemCompra, Produto
-from estoque.models import EstoqueMovimento, ProdutoEstoque
+from estoque.models import EstoqueMovimento, ProdutoEstoque, ProdutoEstoqueUnidade, UnidadeLoja
 from estoque.services.estoque_service import registrar_entrada
 from estoque.services.integracao_compras import dar_entrada_por_compra
 from financeiro.models import Recebivel, StatusRecebivelChoices
@@ -82,14 +83,17 @@ class VendasServiceTest(TestCase):
     def test_faturamento_com_baixa_estoque(self):
         venda = self._criar_venda_base()
         venda.status = StatusVendaChoices.CONFIRMADA
-        venda.save(update_fields=["status"])
+        venda.unidade_saida = UnidadeLoja.LOJA_1
+        venda.save(update_fields=["status", "unidade_saida"])
 
         faturar_venda(venda, self.user)
         venda.refresh_from_db()
         cfg = ProdutoEstoque.objects.get(produto=self.produto)
+        saldo_unidade = ProdutoEstoqueUnidade.objects.get(produto=self.produto, unidade=UnidadeLoja.LOJA_1)
 
         self.assertEqual(venda.status, StatusVendaChoices.FATURADA)
         self.assertEqual(cfg.saldo_atual, Decimal("8.000"))
+        self.assertEqual(saldo_unidade.saldo_atual, Decimal("8.000"))
         self.assertEqual(VendaMovimentoEstoque.objects.filter(venda=venda, tipo="SAIDA").count(), 1)
 
     def test_gera_recebiveis_para_venda_a_prazo(self):
@@ -201,13 +205,15 @@ class VendasViewUXTest(TestCase):
 
     def test_vendedor_logado_define_proprietario_da_venda(self):
         self.client.force_login(self.vendedor)
+        data_antiga = (timezone.localdate() - timedelta(days=30)).isoformat()
         response = self.client.post(
             reverse("vendas:venda_create"),
             data={
                 "tipo_documento": "VENDA",
                 "cliente": str(self.cliente.id),
                 "vendedor": str(self.gerente.id),
-                "data_venda": timezone.localdate().isoformat(),
+                "unidade_saida": "LOJA_1",
+                "data_venda": data_antiga,
                 "tipo_pagamento": "AVISTA",
                 "numero_parcelas": "1",
                 "intervalo_parcelas_dias": "30",
@@ -227,6 +233,7 @@ class VendasViewUXTest(TestCase):
         self.assertEqual(response.status_code, 302)
         venda = Venda.objects.latest("id")
         self.assertEqual(venda.vendedor_id, self.vendedor.id)
+        self.assertEqual(venda.data_venda, timezone.localdate())
 
     def test_alteracao_registra_log_no_historico(self):
         venda = criar_venda_com_itens(
@@ -254,6 +261,7 @@ class VendasViewUXTest(TestCase):
                 "tipo_documento": "ORCAMENTO",
                 "cliente": str(self.cliente.id),
                 "vendedor": str(self.gerente.id),
+                "unidade_saida": "LOJA_1",
                 "data_venda": timezone.localdate().isoformat(),
                 "tipo_pagamento": "AVISTA",
                 "numero_parcelas": "1",

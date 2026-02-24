@@ -8,6 +8,7 @@
   <p><strong>Codigo:</strong> {{ venda.codigo_identificacao }}</p>
   <p><strong>Cliente:</strong> {{ venda.cliente.nome }}</p>
   <p><strong>Data:</strong> {{ venda.data_venda|date:"d/m/Y" }}</p>
+  <p><strong>Unidade de saida:</strong> {{ venda.get_unidade_saida_display }}</p>
   <p><strong>Tipo:</strong> {{ venda.get_tipo_documento_display }}</p>
   <p><strong>Status:</strong> {{ venda.get_status_display }}</p>
   <p><strong>Pagamento:</strong> {{ venda.get_tipo_pagamento_display }}</p>

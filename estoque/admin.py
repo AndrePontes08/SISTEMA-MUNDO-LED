@@ -8,6 +8,7 @@ from estoque.models import (
     EstoqueMovimento,
     AlertaEstoque,
     ProdutoEstoqueUnidade,
+    SaidaOperacionalEstoque,
     TransferenciaEstoque,
 )
 
@@ -58,3 +59,11 @@ class TransferenciaEstoqueAdmin(admin.ModelAdmin):
     list_filter = ("unidade_origem", "unidade_destino", "data_transferencia")
     search_fields = ("produto__nome", "produto__sku", "observacao")
     autocomplete_fields = ("produto", "usuario")
+
+
+@admin.register(SaidaOperacionalEstoque)
+class SaidaOperacionalEstoqueAdmin(admin.ModelAdmin):
+    list_display = ("id", "produto", "unidade", "tipo", "quantidade", "data_saida", "usuario")
+    list_filter = ("unidade", "tipo", "data_saida")
+    search_fields = ("produto__nome", "produto__sku", "observacao")
+    autocomplete_fields = ("produto", "usuario", "movimento")

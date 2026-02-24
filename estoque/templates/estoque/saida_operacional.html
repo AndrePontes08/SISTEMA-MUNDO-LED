@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Saidas Operacionais{% endblock %}
+{% block page_title %}Saidas de Troca / Garantia{% endblock %}
+{% block content %}
+<style>
+  .card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 10px rgba(0,0,0,.06); }
+  .grid { display:grid; grid-template-columns:repeat(3,minmax(180px,1fr)); gap:12px; }
+  table { width:100%; border-collapse:collapse; margin-top:10px; }
+  th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; }
+  .btn { display:inline-block; padding:10px 12px; border-radius:10px; border:1px solid #111827; text-decoration:none; }
+  .muted { color:#6b7280; font-size:13px; }
+  @media (max-width: 980px) { .grid { grid-template-columns:1fr; } }
+</style>
+
+<div class="card">
+  <h2 style="margin:0 0 8px 0;">Registrar saída operacional</h2>
+  <p class="muted" style="margin:0 0 14px 0;">
+    Use para baixar estoque automaticamente em trocas, garantias e outras saídas internas por unidade.
+  </p>
+  <form method="post" id="saida-form">
+    {% csrf_token %}
+    <div class="grid">
+      <div><label>Loja</label>{{ form.unidade }}{{ form.unidade.errors }}</div>
+      <div><label>Tipo</label>{{ form.tipo }}{{ form.tipo.errors }}</div>
+      <div><label>Data</label>{{ form.data_saida }}{{ form.data_saida.errors }}</div>
+    </div>
+    <div style="margin-top:10px;"><label>Observacao</label>{{ form.observacao }}{{ form.observacao.errors }}</div>
+
+    <h3 style="margin-top:18px;">Itens</h3>
+    {{ formset.management_form }}
+    <table id="itens-table">
+      <thead><tr><th>Produto</th><th>Quantidade</th><th>Remover</th></tr></thead>
+      <tbody>
+        {% for f in formset %}
+          <tr class="item-row">
+            <td>{{ f.produto }}{{ f.produto.errors }}</td>
+            <td>{{ f.quantidade }}{{ f.quantidade.errors }}</td>
+            <td>{{ f.DELETE }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div style="margin-top:10px;display:flex;gap:8px;">
+      <button type="button" class="btn" id="add-row-btn">Adicionar item</button>
+      <button type="submit" class="btn">Registrar saída</button>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="margin-top:12px;">
+  <h3 style="margin:0 0 8px 0;">Últimas saídas</h3>
+  <table>
+    <thead><tr><th>Data</th><th>Loja</th><th>Tipo</th><th>Produto</th><th>Qtd</th><th>Usuário</th></tr></thead>
+    <tbody>
+      {% for row in ultimas_saidas %}
+        <tr>
+          <td>{{ row.data_saida|date:"d/m/Y" }}</td>
+          <td>{{ row.get_unidade_display }}</td>
+          <td>{{ row.get_tipo_display }}</td>
+          <td>{{ row.produto.nome }}</td>
+          <td>{{ row.quantidade }}</td>
+          <td>{% if row.usuario %}{{ row.usuario.username }}{% else %}-{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">Sem saídas registradas.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<template id="empty-form-template">
+  <tr class="item-row">
+    <td>__PRODUTO__</td>
+    <td>__QTD__</td>
+    <td>__DELETE__</td>
+  </tr>
+</template>
+
+<script>
+  (function () {
+    const addBtn = document.getElementById("add-row-btn");
+    const tableBody = document.querySelector("#itens-table tbody");
+    const totalForms = document.querySelector("#id_itens-TOTAL_FORMS");
+    const template = document.getElementById("empty-form-template");
+    const emptyProduto = `{{ formset.empty_form.produto|escapejs }}`;
+    const emptyQtd = `{{ formset.empty_form.quantidade|escapejs }}`;
+    const emptyDelete = `{{ formset.empty_form.DELETE|escapejs }}`;
+
+    addBtn.addEventListener("click", function () {
+      const idx = Number(totalForms.value);
+      let html = template.innerHTML;
+      html = html.replace("__PRODUTO__", emptyProduto.replaceAll("__prefix__", String(idx)));
+      html = html.replace("__QTD__", emptyQtd.replaceAll("__prefix__", String(idx)));
+      html = html.replace("__DELETE__", emptyDelete.replaceAll("__prefix__", String(idx)));
+      const wrapper = document.createElement("tbody");
+      wrapper.innerHTML = html.trim();
+      tableBody.appendChild(wrapper.firstElementChild);
+      totalForms.value = String(idx + 1);
+    });
+  })();
+</script>
+{% endblock %}

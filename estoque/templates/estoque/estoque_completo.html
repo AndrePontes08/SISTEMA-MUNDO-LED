@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Configuracao de Estoque{% endblock %}
-{% block page_title %}Produtos / Configuracao de Estoque{% endblock %}
+{% block title %}Estoque Completo{% endblock %}
+{% block page_title %}Estoque Completo por Unidade{% endblock %}
 {% block content %}
 <style>
   .card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 10px rgba(0,0,0,.06); }
@@ -16,7 +16,7 @@
     <button type="submit" style="padding:10px 12px; border-radius:10px; border:1px solid #111827;">Buscar</button>
   </form>
   <table>
-    <thead><tr><th>Produto</th><th>FM Comercio - Loja 1</th><th>ML Comercio - Loja 2</th><th>Saldo Total</th><th>Min</th><th>Ideal</th><th>Max</th><th></th></tr></thead>
+    <thead><tr><th>Produto</th><th>FM COMERCIO - LOJA 1</th><th>ML COMERCIO - LOJA 2</th><th>Total</th><th>Atualizado</th></tr></thead>
     <tbody>
     {% for cfg in configs %}
       <tr>
@@ -24,12 +24,9 @@
         <td>{{ cfg.saldo_fm }}</td>
         <td>{{ cfg.saldo_ml }}</td>
         <td>{{ cfg.saldo_atual }}</td>
-        <td>{{ cfg.estoque_minimo }}</td>
-        <td>{{ cfg.estoque_ideal }}</td>
-        <td>{{ cfg.estoque_maximo }}</td>
-        <td><a class="chip" href="{% url 'estoque:produtoestoque_update' cfg.id %}">Editar</a></td>
+        <td>{{ cfg.atualizado_em|date:"d/m/Y H:i" }}</td>
       </tr>
-    {% empty %}<tr><td colspan="8" class="muted">Nenhum registro.</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="5" class="muted">Nenhum registro.</td></tr>{% endfor %}
     </tbody>
   </table>
   {% if is_paginated %}

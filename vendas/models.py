@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from boletos.models import Boleto, Cliente
 from compras.models import Produto
-from estoque.models import EstoqueMovimento
+from estoque.models import EstoqueMovimento, UnidadeLoja
 from financeiro.models import Recebivel
 
 
@@ -56,6 +56,12 @@ class Venda(models.Model):
         null=True,
     )
     data_venda = models.DateField(default=timezone.localdate, db_index=True)
+    unidade_saida = models.CharField(
+        max_length=20,
+        choices=UnidadeLoja.choices,
+        default=UnidadeLoja.LOJA_1,
+        db_index=True,
+    )
     status = models.CharField(
         max_length=20,
         choices=StatusVendaChoices.choices,

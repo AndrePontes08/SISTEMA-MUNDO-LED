@@ -32,6 +32,7 @@
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Codigo</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Data</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Tipo</th>
+        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Unidade</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Cliente</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Itens</th>
         <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Status</th>
@@ -44,6 +45,7 @@
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;"><a href="{% url 'vendas:venda_detail' venda.pk %}">{{ venda.codigo_identificacao }}</a></td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.data_venda|date:"d/m/Y" }}</td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.get_tipo_documento_display }}</td>
+          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.get_unidade_saida_display }}</td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.cliente.nome }}</td>
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;min-width:320px;">
             <table style="width:100%;border-collapse:collapse;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
@@ -74,7 +76,7 @@
           <td style="padding:8px;border-bottom:1px solid #e5e7eb;">R$ {{ venda.total_final }}</td>
         </tr>
       {% empty %}
-        <tr><td colspan="7" style="padding:10px;">Nenhuma venda encontrada.</td></tr>
+        <tr><td colspan="8" style="padding:10px;">Nenhuma venda encontrada.</td></tr>
       {% endfor %}
     </tbody>
   </table>

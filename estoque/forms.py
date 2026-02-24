@@ -4,7 +4,7 @@ from django import forms
 from django.forms import formset_factory
 
 from compras.models import Produto
-from estoque.models import ProdutoEstoque, TipoMovimento, UnidadeLoja
+from estoque.models import ProdutoEstoque, TipoMovimento, TipoSaidaOperacional, UnidadeLoja
 
 
 class ProdutoEstoqueForm(forms.ModelForm):
@@ -58,5 +58,48 @@ class TransferenciaItemForm(forms.Form):
 TransferenciaItemFormSet = formset_factory(
     TransferenciaItemForm,
     extra=1,
+    can_delete=True,
+)
+
+
+class ContagemRapidaForm(forms.Form):
+    unidade = forms.ChoiceField(choices=UnidadeLoja.choices)
+    data_contagem = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    observacao = forms.CharField(required=False, max_length=255)
+
+
+class ContagemRapidaItemForm(forms.Form):
+    produto = forms.ModelChoiceField(
+        queryset=Produto.objects.filter(ativo=True).order_by("nome"),
+        empty_label="Selecione...",
+    )
+    quantidade_contada = forms.DecimalField(min_value=0, decimal_places=3, max_digits=14)
+
+
+ContagemRapidaItemFormSet = formset_factory(
+    ContagemRapidaItemForm,
+    extra=5,
+    can_delete=True,
+)
+
+
+class SaidaOperacionalForm(forms.Form):
+    unidade = forms.ChoiceField(choices=UnidadeLoja.choices)
+    tipo = forms.ChoiceField(choices=TipoSaidaOperacional.choices)
+    data_saida = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    observacao = forms.CharField(required=False, max_length=255)
+
+
+class SaidaOperacionalItemForm(forms.Form):
+    produto = forms.ModelChoiceField(
+        queryset=Produto.objects.filter(ativo=True).order_by("nome"),
+        empty_label="Selecione...",
+    )
+    quantidade = forms.DecimalField(min_value=0.001, decimal_places=3, max_digits=14)
+
+
+SaidaOperacionalItemFormSet = formset_factory(
+    SaidaOperacionalItemForm,
+    extra=3,
     can_delete=True,
 )

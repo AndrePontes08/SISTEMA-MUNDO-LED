@@ -22,6 +22,10 @@
         {{ form.vendedor }}
       </div>
       <div>
+        <label for="{{ form.unidade_saida.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.unidade_saida.label }}</label>
+        {{ form.unidade_saida }}
+      </div>
+      <div>
         <label for="{{ form.data_venda.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.data_venda.label }}</label>
         {{ form.data_venda }}
       </div>

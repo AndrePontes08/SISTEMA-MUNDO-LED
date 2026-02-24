@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Contagem Rapida{% endblock %}
+{% block page_title %}Contagem Rapida por Loja{% endblock %}
+{% block content %}
+<style>
+  .card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 10px rgba(0,0,0,.06); }
+  .grid { display:grid; grid-template-columns:repeat(2,minmax(280px,1fr)); gap:12px; }
+  .field { display:flex; flex-direction:column; gap:6px; }
+  table { width:100%; border-collapse:collapse; margin-top:10px; }
+  th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; }
+  .btn { display:inline-block; padding:10px 12px; border-radius:10px; border:1px solid #111827; text-decoration:none; }
+  .muted { color:#6b7280; font-size:13px; }
+  .line-actions { margin-top:10px; display:flex; gap:8px; }
+  @media (max-width: 980px) { .grid { grid-template-columns:1fr; } }
+</style>
+
+<div class="card">
+  <h2 style="margin:0 0 8px 0;">Ajustar contagem de mercadoria</h2>
+  <p class="muted" style="margin:0 0 14px 0;">
+    Informe a loja e as quantidades contadas. O sistema ajusta saldo da loja e saldo total com transacao segura.
+  </p>
+  <form method="post" id="contagem-form">
+    {% csrf_token %}
+    <div class="grid">
+      <div class="field">
+        <label>Loja</label>
+        {{ form.unidade }}
+        {{ form.unidade.errors }}
+      </div>
+      <div class="field">
+        <label>Data da contagem</label>
+        {{ form.data_contagem }}
+        {{ form.data_contagem.errors }}
+      </div>
+      <div class="field" style="grid-column:1 / -1;">
+        <label>Observacao</label>
+        {{ form.observacao }}
+        {{ form.observacao.errors }}
+      </div>
+    </div>
+
+    <h3 style="margin:18px 0 8px 0;">Itens contados</h3>
+    {{ formset.management_form }}
+    <table id="itens-table">
+      <thead><tr><th>Produto</th><th>Quantidade contada</th><th>Remover</th></tr></thead>
+      <tbody>
+        {% for f in formset %}
+          <tr class="item-row">
+            <td>{{ f.produto }}{{ f.produto.errors }}</td>
+            <td>{{ f.quantidade_contada }}{{ f.quantidade_contada.errors }}</td>
+            <td>{{ f.DELETE }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="line-actions">
+      <button type="button" class="btn" id="add-row-btn">Adicionar item</button>
+      <button type="submit" class="btn">Aplicar contagem</button>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="margin-top:12px;">
+  <h3 style="margin:0 0 8px 0;">Saldos atuais - {{ unidade_label }}</h3>
+  <table>
+    <thead><tr><th>Produto</th><th>Saldo atual</th><th>Atualizado em</th></tr></thead>
+    <tbody>
+      {% for row in saldos_unidade %}
+        <tr>
+          <td>{{ row.produto.nome }}</td>
+          <td>{{ row.saldo_atual }}</td>
+          <td>{{ row.atualizado_em|date:"d/m/Y H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3" class="muted">Sem saldos para esta loja ainda.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<template id="empty-form-template">
+  <tr class="item-row">
+    <td>__PRODUTO__</td>
+    <td>__QTD__</td>
+    <td>__DELETE__</td>
+  </tr>
+</template>
+
+<script>
+  (function () {
+    const addBtn = document.getElementById("add-row-btn");
+    const tableBody = document.querySelector("#itens-table tbody");
+    const totalForms = document.querySelector("#id_itens-TOTAL_FORMS");
+    const template = document.getElementById("empty-form-template");
+    const emptyProduto = `{{ formset.empty_form.produto|escapejs }}`;
+    const emptyQtd = `{{ formset.empty_form.quantidade_contada|escapejs }}`;
+    const emptyDelete = `{{ formset.empty_form.DELETE|escapejs }}`;
+
+    addBtn.addEventListener("click", function () {
+      const idx = Number(totalForms.value);
+      let html = template.innerHTML;
+      html = html.replace("__PRODUTO__", emptyProduto.replaceAll("__prefix__", String(idx)));
+      html = html.replace("__QTD__", emptyQtd.replaceAll("__prefix__", String(idx)));
+      html = html.replace("__DELETE__", emptyDelete.replaceAll("__prefix__", String(idx)));
+      const wrapper = document.createElement("tbody");
+      wrapper.innerHTML = html.trim();
+      tableBody.appendChild(wrapper.firstElementChild);
+      totalForms.value = String(idx + 1);
+    });
+  })();
+</script>
+{% endblock %}

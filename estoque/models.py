@@ -151,8 +151,8 @@ class AlertaEstoque(models.Model):
 
 
 class UnidadeLoja(models.TextChoices):
-    LOJA_1 = "LOJA_1", "Loja 1"
-    LOJA_2 = "LOJA_2", "Loja 2"
+    LOJA_1 = "LOJA_1", "FM COMERCIO - LOJA 1"
+    LOJA_2 = "LOJA_2", "ML COMERCIO - LOJA 2"
 
 
 class ProdutoEstoqueUnidade(models.Model):
@@ -210,3 +210,37 @@ class TransferenciaEstoque(models.Model):
             f"{self.get_unidade_origem_display()} -> {self.get_unidade_destino_display()} "
             f"({self.quantidade})"
         )
+
+
+class TipoSaidaOperacional(models.TextChoices):
+    TROCA = "TROCA", "Troca"
+    GARANTIA = "GARANTIA", "Garantia"
+    AVARIA = "AVARIA", "Avaria"
+    OUTRA = "OUTRA", "Outra"
+
+
+class SaidaOperacionalEstoque(models.Model):
+    produto = models.ForeignKey(Produto, on_delete=models.PROTECT, related_name="saidas_operacionais")
+    unidade = models.CharField(max_length=20, choices=UnidadeLoja.choices, db_index=True)
+    tipo = models.CharField(max_length=20, choices=TipoSaidaOperacional.choices, db_index=True)
+    quantidade = models.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        validators=[MinValueValidator(Decimal("0.001"))],
+    )
+    data_saida = models.DateField(default=timezone.localdate, db_index=True)
+    observacao = models.CharField(max_length=255, blank=True, default="")
+    usuario = models.ForeignKey("auth.User", on_delete=models.SET_NULL, blank=True, null=True)
+    movimento = models.ForeignKey(EstoqueMovimento, on_delete=models.PROTECT, related_name="saidas_operacionais")
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["data_saida"], name="idx_saidaop_data"),
+            models.Index(fields=["tipo", "data_saida"], name="idx_saidaop_tipo_data"),
+            models.Index(fields=["unidade", "produto"], name="idx_saidaop_unid_prod"),
+        ]
+        ordering = ["-data_saida", "-id"]
+
+    def __str__(self) -> str:
+        return f"Saida {self.get_tipo_display()} {self.produto.nome} ({self.quantidade})"
