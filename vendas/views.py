@@ -80,14 +80,21 @@ def _build_simple_pdf(lines: list[str]) -> bytes:
 
 def _pdf_business_lines(venda: Venda) -> list[str]:
     validade = (venda.data_venda + timedelta(days=7)).strftime("%d/%m/%Y")
+    if venda.numero_parcelas and venda.numero_parcelas > 1:
+        parcelamento = (
+            f"{venda.numero_parcelas}x a cada {venda.intervalo_parcelas_dias or 30} dias"
+        )
+    else:
+        parcelamento = "A vista"
     lines = [
-        "AUTO TECH",
+        "MUNDO LED",
         f"{venda.get_tipo_documento_display()} {venda.codigo_identificacao}",
         f"Cliente: {venda.cliente.nome}",
         f"Data emissao: {venda.data_venda:%d/%m/%Y}",
         f"Validade da proposta: {validade}",
         f"Vendedor responsavel: {venda.vendedor or '-'}",
         f"Pagamento: {venda.get_tipo_pagamento_display()} | Status: {venda.get_status_display()}",
+        f"Parcelamento: {parcelamento}",
         "",
         "ITENS",
     ]
@@ -99,6 +106,7 @@ def _pdf_business_lines(venda: Venda) -> list[str]:
         [
             "",
             f"Subtotal: R$ {venda.subtotal:.2f}",
+            f"Desconto total: R$ {venda.desconto_total:.2f}",
             f"Acrescimo: R$ {venda.acrescimo:.2f}",
             f"Total: R$ {venda.total_final:.2f}",
             "",
@@ -113,7 +121,7 @@ def _pdf_business_lines(venda: Venda) -> list[str]:
             "Assinatura cliente: __________________________",
             "Assinatura vendedor: _________________________",
             "",
-            "AUTO TECH - Documento gerado pelo ERP",
+            "MUNDO LED - Documento gerado pelo ERP",
         ]
     )
     return lines
@@ -571,53 +579,83 @@ class VendaPDFView(VendasAccessMixin, View):
             width, height = A4
 
             logo_path = str(settings.BASE_DIR / "core" / "static" / "core" / "img" / "logo.jpg")
-            # Header com fundo colorido
-            header_h = 30 * mm
-            pdf.setFillColor(colors.HexColor("#0f172a"))
-            pdf.rect(0, height - header_h, width, header_h, fill=1, stroke=0)
-            pdf.setFillColor(colors.white)
+            left = 12 * mm
+            right = width - 12 * mm
+            header_bottom = height - 35 * mm
             try:
-                pdf.drawImage(logo_path, 12 * mm, height - 24 * mm, width=14 * mm, height=14 * mm, preserveAspectRatio=True, mask="auto")
+                pdf.drawImage(
+                    logo_path,
+                    left,
+                    height - 30 * mm,
+                    width=16 * mm,
+                    height=16 * mm,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
             except Exception:
                 pass
-            pdf.setFont("Helvetica-Bold", 17)
-            pdf.drawString(30 * mm, height - 14 * mm, "AUTO TECH")
-            pdf.setFont("Helvetica", 10)
-            pdf.drawString(30 * mm, height - 20 * mm, "Documento comercial")
+            pdf.setFillColor(colors.HexColor("#111827"))
+            pdf.setFont("Helvetica-Bold", 16)
+            pdf.drawString(left + 20 * mm, height - 19 * mm, "MUNDO LED")
+            pdf.setFont("Helvetica", 9)
+            pdf.setFillColor(colors.HexColor("#374151"))
+            pdf.drawString(left + 20 * mm, height - 24 * mm, "Documento comercial de venda/orcamento")
+            pdf.setFillColor(colors.HexColor("#111827"))
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawRightString(right, height - 19 * mm, venda.codigo_identificacao)
+            pdf.setFont("Helvetica", 8)
+            pdf.drawRightString(right, height - 24 * mm, f"Gerado em {timezone.localtime():%d/%m/%Y %H:%M}")
+            pdf.setStrokeColor(colors.HexColor("#d1d5db"))
+            pdf.line(left, header_bottom, right, header_bottom)
 
-            y = height - header_h - 8 * mm
+            y = header_bottom - 7 * mm
             validade = (venda.data_venda + timedelta(days=7)).strftime("%d/%m/%Y")
-            pdf.setFont("Helvetica-Bold", 11)
-            pdf.drawString(15 * mm, y, f"{venda.get_tipo_documento_display()} {venda.codigo_identificacao}")
-            y -= 7 * mm
-            pdf.setFont("Helvetica", 10)
-            pdf.drawString(15 * mm, y, f"Cliente: {venda.cliente.nome}")
-            y -= 5 * mm
-            pdf.drawString(15 * mm, y, f"Data emissao: {venda.data_venda:%d/%m/%Y} | Validade: {validade}")
-            y -= 5 * mm
-            pdf.drawString(15 * mm, y, f"Vendedor: {venda.vendedor or '-'}")
-            y -= 5 * mm
-            pdf.drawString(15 * mm, y, f"Pagamento: {venda.get_tipo_pagamento_display()} | Status: {venda.get_status_display()}")
-            y -= 10 * mm
+            if venda.numero_parcelas and venda.numero_parcelas > 1:
+                parcelamento = f"{venda.numero_parcelas}x / {venda.intervalo_parcelas_dias or 30} dias"
+            else:
+                parcelamento = "A vista"
+
+            info_top = y
+            info_bottom = y - 25 * mm
+            pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
+            pdf.roundRect(left, info_bottom, right - left, info_top - info_bottom, 3, fill=0, stroke=1)
+            pdf.setFont("Helvetica-Bold", 9)
+            pdf.setFillColor(colors.HexColor("#111827"))
+            pdf.drawString(left + 3 * mm, info_top - 5 * mm, "Dados da venda")
+            pdf.setFont("Helvetica", 9)
+            pdf.drawString(left + 3 * mm, info_top - 10 * mm, f"Tipo: {venda.get_tipo_documento_display()}")
+            pdf.drawString(left + 3 * mm, info_top - 15 * mm, f"Cliente: {venda.cliente.nome}")
+            pdf.drawString(left + 3 * mm, info_top - 20 * mm, f"Vendedor: {venda.vendedor or '-'}")
+            pdf.drawString(left + 3 * mm, info_top - 25 * mm, f"Data: {venda.data_venda:%d/%m/%Y}  |  Validade: {validade}")
+
+            col2 = left + 105 * mm
+            pdf.drawString(col2, info_top - 10 * mm, f"Forma pagto: {venda.get_tipo_pagamento_display()}")
+            pdf.drawString(col2, info_top - 15 * mm, f"Parcelamento: {parcelamento}")
+            if venda.primeiro_vencimento:
+                pdf.drawString(col2, info_top - 20 * mm, f"1 vencimento: {venda.primeiro_vencimento:%d/%m/%Y}")
+            else:
+                pdf.drawString(col2, info_top - 20 * mm, "1 vencimento: -")
+            pdf.drawString(col2, info_top - 25 * mm, f"Status: {venda.get_status_display()}")
+            y = info_bottom - 8 * mm
 
             # Header da tabela de itens
-            x0 = 15 * mm
+            x0 = left
             x_prod = x0
-            x_qtd = 118 * mm
-            x_unit = 136 * mm
-            x_desc = 156 * mm
-            x_sub = 178 * mm
-            x_end = 195 * mm
+            x_qtd = 114 * mm
+            x_unit = 130 * mm
+            x_desc = 148 * mm
+            x_sub = 170 * mm
+            x_end = right
             row_h = 6 * mm
 
-            pdf.setFillColor(colors.HexColor("#e2e8f0"))
+            pdf.setFillColor(colors.HexColor("#f3f4f6"))
             pdf.rect(x0, y - row_h + 1.5, x_end - x0, row_h, fill=1, stroke=0)
-            pdf.setFillColor(colors.black)
+            pdf.setFillColor(colors.HexColor("#111827"))
             pdf.setFont("Helvetica-Bold", 9)
             pdf.drawString(x_prod + 1.5, y - 2.5, "Produto")
             pdf.drawString(x_qtd + 1, y - 2.5, "Qtd")
-            pdf.drawString(x_unit + 1, y - 2.5, "Unit.")
-            pdf.drawString(x_desc + 1, y - 2.5, "Desc.")
+            pdf.drawString(x_unit + 1, y - 2.5, "Unit. R$")
+            pdf.drawString(x_desc + 1, y - 2.5, "Desc. R$")
             pdf.drawString(x_sub + 1, y - 2.5, "Subtotal")
             y -= row_h + 2
 
@@ -625,15 +663,19 @@ class VendaPDFView(VendasAccessMixin, View):
             for item in venda.itens.all():
                 if y < 35 * mm:
                     pdf.showPage()
-                    y = height - 20 * mm
-                    pdf.setFillColor(colors.HexColor("#e2e8f0"))
+                    y = height - 24 * mm
+                    pdf.setFont("Helvetica-Bold", 10)
+                    pdf.setFillColor(colors.HexColor("#111827"))
+                    pdf.drawString(left, y, f"MUNDO LED | {venda.codigo_identificacao}")
+                    y -= 6 * mm
+                    pdf.setFillColor(colors.HexColor("#f3f4f6"))
                     pdf.rect(x0, y - row_h + 1.5, x_end - x0, row_h, fill=1, stroke=0)
-                    pdf.setFillColor(colors.black)
+                    pdf.setFillColor(colors.HexColor("#111827"))
                     pdf.setFont("Helvetica-Bold", 9)
                     pdf.drawString(x_prod + 1.5, y - 2.5, "Produto")
                     pdf.drawString(x_qtd + 1, y - 2.5, "Qtd")
-                    pdf.drawString(x_unit + 1, y - 2.5, "Unit.")
-                    pdf.drawString(x_desc + 1, y - 2.5, "Desc.")
+                    pdf.drawString(x_unit + 1, y - 2.5, "Unit. R$")
+                    pdf.drawString(x_desc + 1, y - 2.5, "Desc. R$")
                     pdf.drawString(x_sub + 1, y - 2.5, "Subtotal")
                     y -= row_h + 2
                     pdf.setFont("Helvetica", 9)
@@ -658,47 +700,59 @@ class VendaPDFView(VendasAccessMixin, View):
                 pdf.drawRightString(x_end - 1.5, text_y, f"{item.subtotal:.2f}")
                 y -= current_row_h + 1.5
 
-            y -= 6 * mm
+            y -= 4 * mm
+            resumo_top = y
+            resumo_bottom = y - 23 * mm
+            if resumo_bottom < 32 * mm:
+                pdf.showPage()
+                y = height - 24 * mm
+                resumo_top = y
+                resumo_bottom = y - 23 * mm
+            pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
+            pdf.roundRect(left, resumo_bottom, right - left, resumo_top - resumo_bottom, 3, fill=0, stroke=1)
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.setFillColor(colors.HexColor("#111827"))
+            pdf.drawString(left + 3 * mm, resumo_top - 5 * mm, "Resumo financeiro")
+            pdf.setFont("Helvetica", 9)
+            pdf.drawString(left + 3 * mm, resumo_top - 10 * mm, f"Subtotal: R$ {venda.subtotal:.2f}")
+            pdf.drawString(left + 3 * mm, resumo_top - 15 * mm, f"Desconto total: R$ {venda.desconto_total:.2f}")
+            pdf.drawString(left + 3 * mm, resumo_top - 20 * mm, f"Acrescimo: R$ {venda.acrescimo:.2f}")
             pdf.setFont("Helvetica-Bold", 11)
-            pdf.drawString(15 * mm, y, f"Subtotal: R$ {venda.subtotal:.2f}")
-            y -= 5 * mm
-            pdf.drawString(15 * mm, y, f"Acrescimo: R$ {venda.acrescimo:.2f}")
-            y -= 5 * mm
-            pdf.drawString(15 * mm, y, f"Total: R$ {venda.total_final:.2f}")
-            y -= 8 * mm
+            pdf.drawRightString(right - 3 * mm, resumo_top - 15 * mm, f"TOTAL: R$ {venda.total_final:.2f}")
+            y = resumo_bottom - 7 * mm
 
             pdf.setFont("Helvetica-Bold", 10)
-            pdf.drawString(15 * mm, y, "Condicoes comerciais")
+            pdf.drawString(left, y, "Condicoes comerciais")
             y -= 5 * mm
             pdf.setFont("Helvetica", 9)
-            pdf.drawString(15 * mm, y, "1) Valores sujeitos a confirmacao de estoque no faturamento.")
+            pdf.drawString(left, y, "1) Valores sujeitos a confirmacao de estoque no faturamento.")
             y -= 4 * mm
-            pdf.drawString(15 * mm, y, "2) Prazo de entrega a confirmar com o vendedor.")
+            pdf.drawString(left, y, "2) Prazo de entrega a confirmar com o vendedor.")
             y -= 4 * mm
-            pdf.drawString(15 * mm, y, "3) Garantia conforme politica interna e fabricante.")
+            pdf.drawString(left, y, "3) Garantia conforme politica interna e fabricante.")
             y -= 7 * mm
             pdf.setFont("Helvetica-Bold", 10)
-            pdf.drawString(15 * mm, y, "Observacoes")
+            pdf.drawString(left, y, "Observacoes")
             y -= 5 * mm
             pdf.setFont("Helvetica", 9)
-            obs_lines = wrap_text(pdf, venda.observacoes or "-", max_width=170 * mm, font_size=9)
+            obs_lines = wrap_text(pdf, venda.observacoes or "-", max_width=right - left, font_size=9)
             for obs_line in obs_lines[:8]:
                 if y < 35 * mm:
                     pdf.showPage()
                     y = height - 25 * mm
                     pdf.setFont("Helvetica", 9)
-                pdf.drawString(15 * mm, y, obs_line)
+                pdf.drawString(left, y, obs_line)
                 y -= 4 * mm
             y -= 4 * mm
 
             pdf.setFont("Helvetica", 9)
-            pdf.line(15 * mm, y, 90 * mm, y)
+            pdf.line(left, y, 90 * mm, y)
             pdf.line(110 * mm, y, 185 * mm, y)
             y -= 4 * mm
-            pdf.drawString(15 * mm, y, "Assinatura cliente")
+            pdf.drawString(left, y, "Assinatura cliente")
             pdf.drawString(110 * mm, y, "Assinatura vendedor")
             y -= 8 * mm
-            pdf.drawString(15 * mm, y, "AUTO TECH - Documento gerado pelo ERP")
+            pdf.drawString(left, y, "MUNDO LED - Documento gerado pelo ERP")
             pdf.showPage()
             pdf.save()
             buffer.seek(0)
