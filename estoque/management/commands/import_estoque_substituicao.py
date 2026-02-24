@@ -59,6 +59,11 @@ class Command(BaseCommand):
             default=UnidadeLoja.LOJA_1,
             help="Unidade que receberá o saldo importado quando o CSV não tiver coluna por unidade.",
         )
+        parser.add_argument(
+            "--same-in-both-units",
+            action="store_true",
+            help="Replica o mesmo saldo nas duas unidades (FM e ML).",
+        )
 
     def _load_rows(self, csv_path: Path) -> dict[str, AggregatedRow]:
         raw = csv_path.read_bytes()
@@ -122,6 +127,7 @@ class Command(BaseCommand):
         skipped = 0
         target_unit = options["target_unit"]
         other_unit = UnidadeLoja.LOJA_2 if target_unit == UnidadeLoja.LOJA_1 else UnidadeLoja.LOJA_1
+        same_in_both_units = bool(options.get("same_in_both_units"))
 
         for idx, (sku, row) in enumerate(rows.items(), start=1):
             produto = Produto.objects.filter(sku=sku).first()
@@ -157,7 +163,7 @@ class Command(BaseCommand):
             unidade_other, _ = ProdutoEstoqueUnidade.objects.get_or_create(produto=produto, unidade=other_unit)
             unidade_target.saldo_atual = quantidade
             unidade_target.save(update_fields=["saldo_atual", "atualizado_em"])
-            unidade_other.saldo_atual = Decimal("0.000")
+            unidade_other.saldo_atual = quantidade if same_in_both_units else Decimal("0.000")
             unidade_other.save(update_fields=["saldo_atual", "atualizado_em"])
 
             updated_products += 1
@@ -170,4 +176,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Produtos atualizados: {updated_products}")
         self.stdout.write(f"Produtos criados: {created_products}")
         self.stdout.write(f"SKUs ignorados (sem produto e sem --create-missing): {skipped}")
-        self.stdout.write(f"Saldo importado para unidade: {target_unit}")
+        if same_in_both_units:
+            self.stdout.write("Saldo importado igualmente para as duas unidades (FM e ML).")
+        else:
+            self.stdout.write(f"Saldo importado para unidade: {target_unit}")

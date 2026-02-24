@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load formatters %}
 
 {% block title %}Compra #{{ compra.id }}{% endblock %}
 {% block page_title %}Compra #{{ compra.id }}{% endblock %}
@@ -29,7 +30,7 @@
   <div class="row">
     <div>
       <h2 style="margin:0;">{{ compra.fornecedor.nome }}</h2>
-      <div class="muted">{{ compra.data_compra|date:"d/m/Y" }} - Centro: {{ compra.centro_custo }} - Total: R$ {{ compra.valor_total }}</div>
+      <div class="muted">{{ compra.data_compra|date:"d/m/Y" }} - Centro: {{ compra.centro_custo }} - Total: {{ compra.valor_total|br_currency }}</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <a class="btn" href="{% url 'compras:compra_update' compra.id %}">Editar</a>
@@ -104,7 +105,7 @@
     <tbody>
     {% for it in compra.itens.all %}
       <tr>
-        <td>{{ it.produto.nome }}</td><td>{{ it.quantidade }}</td><td>{{ it.preco_unitario }}</td><td>{{ it.subtotal }}</td>
+        <td>{{ it.produto.nome }}</td><td>{{ it.quantidade|br_number:3 }}</td><td>{{ it.preco_unitario|br_currency }}</td><td>{{ it.subtotal|br_currency }}</td>
         <td>{% if it.garantias.all %}{% for g in it.garantias.all %}<div class="muted">Ate {{ g.data_fim|date:"d/m/Y" }} {% if g.arquivo %}- <a href="{{ g.arquivo.url }}">arquivo</a>{% endif %}</div>{% endfor %}{% else %}<span class="muted">-</span>{% endif %}</td>
       </tr>
     {% endfor %}

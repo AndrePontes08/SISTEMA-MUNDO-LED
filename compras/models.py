@@ -200,7 +200,8 @@ class ItemCompra(models.Model):
 
     @property
     def subtotal(self) -> Decimal:
-        return (self.quantidade or Decimal("0")) * (self.preco_unitario or Decimal("0"))
+        bruto = (self.quantidade or Decimal("0")) * (self.preco_unitario or Decimal("0"))
+        return bruto.quantize(Decimal("0.01"))
 
     def __str__(self) -> str:
         return f"{self.compra_id} - {self.produto.nome}"
