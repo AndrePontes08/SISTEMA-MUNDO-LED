@@ -103,7 +103,7 @@ def _pdf_business_lines(venda: Venda) -> list[str]:
         f"Cliente: {venda.cliente.nome}",
         f"Data emissao: {venda.data_venda:%d/%m/%Y}",
         f"Validade da proposta: {validade}",
-        f"Vendedor responsavel: {venda.vendedor or '-'}",
+        f"Vendedor responsavel: {_vendedor_label(venda)}",
         f"Pagamento: {_pagamentos_texto(venda)} | Status: {venda.get_status_display()}",
         f"Parcelamento: {parcelamento}",
         "",
@@ -164,6 +164,16 @@ def _pagamentos_texto(venda: Venda) -> str:
     if not pagamentos:
         return payment_label(venda.tipo_pagamento)
     return " | ".join([f"{payment_label(p.tipo_pagamento)}: {format_brl(p.valor)}" for p in pagamentos])
+
+
+def _vendedor_label(venda: Venda) -> str:
+    if not venda.vendedor:
+        return "-"
+    full = (venda.vendedor.get_full_name() or "").strip()
+    username = (venda.vendedor.username or "").strip()
+    if full and full.lower() != username.lower():
+        return f"{full} ({username})"
+    return username or full or "-"
 
 
 def _parse_pagamentos_post(request, fallback_tipo: str, fallback_valor: Decimal) -> list[dict]:
@@ -792,7 +802,7 @@ class VendaPDFView(VendasAccessMixin, View):
             pdf.setFont("Helvetica", 10)
             pdf.drawString(left + 3 * mm, info_top - 12 * mm, f"Tipo: {venda.get_tipo_documento_display()}")
             pdf.drawString(left + 3 * mm, info_top - 18 * mm, f"Cliente: {venda.cliente.nome}")
-            pdf.drawString(left + 3 * mm, info_top - 24 * mm, f"Vendedor: {venda.vendedor or '-'}")
+            pdf.drawString(left + 3 * mm, info_top - 24 * mm, f"Vendedor: {_vendedor_label(venda)}")
             pdf.drawString(left + 3 * mm, info_top - 30 * mm, f"Unidade: {unit_label(venda.unidade_saida)}")
             pdf.drawString(left + 3 * mm, info_top - 36 * mm, f"Data: {venda.data_venda:%d/%m/%Y}  |  Validade: {validade}")
 

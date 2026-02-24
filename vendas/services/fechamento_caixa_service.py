@@ -4,8 +4,8 @@ import io
 from decimal import Decimal
 from typing import Any
 
-from django.db import transaction
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 from core.services.formato_brl import format_brl, payment_label, unit_label
@@ -46,6 +46,16 @@ def _build_simple_pdf(lines: list[str]) -> bytes:
     return header + body + b"".join(xref) + trailer
 
 
+def _seller_label(venda: Venda) -> str:
+    if not venda.vendedor:
+        return "-"
+    full = (venda.vendedor.get_full_name() or "").strip()
+    username = (venda.vendedor.username or "").strip()
+    if full and full.lower() != username.lower():
+        return f"{full} ({username})"
+    return username or full or "-"
+
+
 def _payload_dia(data_referencia) -> dict[str, Any]:
     vendas_qs = (
         Venda.objects.select_related("cliente", "vendedor")
@@ -76,8 +86,10 @@ def _payload_dia(data_referencia) -> dict[str, Any]:
             label_pagto = payment_label(venda.tipo_pagamento)
             totais_pagamento[label_pagto] = totais_pagamento.get(label_pagto, Decimal("0.00")) + (venda.total_final or Decimal("0.00"))
 
+        qtd_itens = Decimal("0")
         itens = []
         for item in venda.itens.all():
+            qtd_itens += Decimal(str(item.quantidade or "0"))
             itens.append(
                 {
                     "produto": item.produto.nome,
@@ -93,8 +105,9 @@ def _payload_dia(data_referencia) -> dict[str, Any]:
                 "id": venda.id,
                 "codigo": venda.codigo_identificacao,
                 "cliente": venda.cliente.nome,
-                "vendedor": venda.vendedor.username if venda.vendedor else "-",
+                "vendedor": _seller_label(venda),
                 "unidade": unit_label(venda.unidade_saida),
+                "qtd_itens": str(qtd_itens.quantize(Decimal("0.001"))),
                 "pagamentos": [
                     {
                         "tipo_pagamento": payment_label(p.tipo_pagamento),
@@ -123,8 +136,8 @@ def _payload_dia(data_referencia) -> dict[str, Any]:
 
 def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
     try:
-        from reportlab.lib.pagesizes import A4
         from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
         from reportlab.lib.units import mm
         from reportlab.pdfgen import canvas
 
@@ -133,8 +146,10 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
         width, height = A4
         left = 12 * mm
         right = width - 12 * mm
+        line_h = 4.3 * mm
+        y = height - 15 * mm
 
-        def wrap_text(text: str, max_width: float, font_name: str = "Helvetica", font_size: int = 9) -> list[str]:
+        def wrap_text(text: str, max_width: float, font_name: str = "Helvetica", font_size: int = 8.6) -> list[str]:
             text = (text or "").strip()
             if not text:
                 return ["-"]
@@ -153,139 +168,156 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
             if current:
                 lines.append(current)
             return lines or ["-"]
-        logo_candidates = [
-            settings.BASE_DIR / "core" / "static" / "core" / "img" / "logo_mundo_led.png",
-            settings.BASE_DIR / "core" / "static" / "core" / "img" / "logo.jpg",
-        ]
-        logo_path = None
-        for candidate in logo_candidates:
-            if candidate.exists():
-                logo_path = str(candidate)
-                break
 
-        header_bottom = height - 41 * mm
-        if logo_path:
-            try:
-                pdf.drawImage(
-                    logo_path,
-                    left,
-                    height - 35 * mm,
-                    width=22 * mm,
-                    height=22 * mm,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
-            except Exception:
-                pass
-        pdf.setFillColor(colors.HexColor("#111827"))
-        pdf.setFont("Helvetica-Bold", 18)
-        pdf.drawString(left + 26 * mm, height - 19 * mm, "MUNDO LED")
-        pdf.setFont("Helvetica", 10)
-        pdf.setFillColor(colors.HexColor("#374151"))
-        pdf.drawString(left + 26 * mm, height - 25 * mm, "Fechamento diário de caixa")
-        pdf.setFillColor(colors.HexColor("#111827"))
-        pdf.setFont("Helvetica-Bold", 11)
-        pdf.drawRightString(right, height - 18 * mm, f"Data: {payload['data_referencia']}")
-        pdf.setFont("Helvetica", 9)
-        pdf.drawRightString(right, height - 25 * mm, f"Gerado em {timezone.localtime():%d/%m/%Y %H:%M}")
-        pdf.setStrokeColor(colors.HexColor("#d1d5db"))
-        pdf.line(left, header_bottom, right, header_bottom)
+        def page_header() -> None:
+            nonlocal y
+            logo_candidates = [
+                settings.BASE_DIR / "core" / "static" / "core" / "img" / "logo_mundo_led.png",
+                settings.BASE_DIR / "core" / "static" / "core" / "img" / "logo.jpg",
+            ]
+            logo_path = None
+            for candidate in logo_candidates:
+                if candidate.exists():
+                    logo_path = str(candidate)
+                    break
+            if logo_path:
+                try:
+                    pdf.drawImage(
+                        logo_path,
+                        left,
+                        height - 31 * mm,
+                        width=18 * mm,
+                        height=18 * mm,
+                        preserveAspectRatio=True,
+                        mask="auto",
+                    )
+                except Exception:
+                    pass
 
-        y = header_bottom - 8 * mm
+            pdf.setFillColor(colors.HexColor("#111827"))
+            pdf.setFont("Helvetica-Bold", 15)
+            pdf.drawString(left + 21 * mm, height - 17 * mm, "MUNDO LED")
+            pdf.setFont("Helvetica", 9)
+            pdf.setFillColor(colors.HexColor("#374151"))
+            pdf.drawString(left + 21 * mm, height - 22 * mm, "Relatorio de fechamento diario de caixa")
+            pdf.setFillColor(colors.HexColor("#111827"))
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawRightString(right, height - 16 * mm, f"Data de referencia: {payload['data_referencia']}")
+            pdf.setFont("Helvetica", 8.4)
+            pdf.drawRightString(right, height - 21 * mm, f"Gerado em {timezone.localtime():%d/%m/%Y %H:%M}")
+            pdf.setStrokeColor(colors.HexColor("#d1d5db"))
+            pdf.line(left, height - 33 * mm, right, height - 33 * mm)
+            y = height - 39 * mm
 
-        # Bloco de resumo do dia
-        resumo_top = y
+        def ensure_space(required_height: float) -> None:
+            nonlocal y
+            if y - required_height < 16 * mm:
+                pdf.showPage()
+                page_header()
+
+        page_header()
+
+        # resumo
         pay_rows = list(payload["totais_por_pagamento"].items())
-        resumo_h = max(34, 23 + (len(pay_rows) * 5))
-        resumo_bottom = y - resumo_h * mm
+        resumo_h = max(32 * mm, (18 + max(1, len(pay_rows)) * 4.8) * mm)
+        ensure_space(resumo_h + 4 * mm)
+        resumo_top = y
+        resumo_bottom = y - resumo_h
         pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
-        pdf.roundRect(left, resumo_bottom, right - left, resumo_top - resumo_bottom, 3, fill=0, stroke=1)
-        pdf.setFont("Helvetica-Bold", 11)
-        pdf.drawString(left + 3 * mm, resumo_top - 6 * mm, "Resumo do dia")
-        pdf.setFont("Helvetica", 10)
-        pdf.drawString(left + 3 * mm, resumo_top - 13 * mm, f"Total de vendas: {payload['total_vendas']}")
-        pdf.drawString(left + 3 * mm, resumo_top - 19 * mm, f"Descontos totais: {format_brl(payload['total_descontos'])}")
-        pdf.setFont("Helvetica-Bold", 12)
-        pdf.drawRightString(right - 3 * mm, resumo_top - 13 * mm, f"Receita total: {format_brl(payload['total_receita'])}")
+        pdf.roundRect(left, resumo_bottom, right - left, resumo_h, 3, fill=0, stroke=1)
+
+        inner_y = resumo_top - 5 * mm
         pdf.setFont("Helvetica-Bold", 10)
-        pdf.drawString(left + 3 * mm, resumo_top - 25 * mm, "Total por forma de pagamento:")
-        py = resumo_top - 30 * mm
-        pdf.setFont("Helvetica", 9)
+        pdf.drawString(left + 3 * mm, inner_y, "Resumo do dia")
+        inner_y -= 5.5 * mm
+        pdf.setFont("Helvetica", 9.5)
+        pdf.drawString(left + 3 * mm, inner_y, f"Total de vendas: {payload['total_vendas']}")
+        inner_y -= line_h
+        pdf.drawString(left + 3 * mm, inner_y, f"Descontos totais: {format_brl(payload['total_descontos'])}")
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawRightString(right - 3 * mm, resumo_top - 10.5 * mm, f"Receita total: {format_brl(payload['total_receita'])}")
+
+        inner_y -= 5 * mm
+        pdf.setFont("Helvetica-Bold", 9.3)
+        pdf.drawString(left + 3 * mm, inner_y, "Totais por forma de pagamento")
+        inner_y -= line_h
+        pdf.setFont("Helvetica", 8.8)
         if pay_rows:
             for pagamento, total in pay_rows:
-                pdf.drawString(left + 7 * mm, py, f"- {pagamento}: {format_brl(total)}")
-                py -= 5 * mm
+                pdf.drawString(left + 7 * mm, inner_y, f"- {pagamento}: {format_brl(total)}")
+                inner_y -= line_h
         else:
-            pdf.drawString(left + 7 * mm, py, "-")
+            pdf.drawString(left + 7 * mm, inner_y, "-")
 
-        y = resumo_bottom - 8 * mm
+        y = resumo_bottom - 7 * mm
 
-        # Seção 1 - detalhamento das vendas
+        # secao vendas
         pdf.setFont("Helvetica-Bold", 11)
-        pdf.drawString(left, y, "Seção 1 - Vendas do dia")
+        pdf.drawString(left, y, "Secao 1 - Vendas do dia")
         y -= 6 * mm
 
+        col = {
+            "codigo": left,
+            "cliente": left + 24 * mm,
+            "vendedor": left + 90 * mm,
+            "pagto": left + 126 * mm,
+            "itens": left + 163 * mm,
+            "total": left + 174 * mm,
+        }
+
+        def draw_header_table() -> None:
+            nonlocal y
+            ensure_space(10 * mm)
+            pdf.setFillColor(colors.HexColor("#f3f4f6"))
+            pdf.rect(left, y - 6 * mm, right - left, 7 * mm, fill=1, stroke=0)
+            pdf.setFillColor(colors.HexColor("#111827"))
+            pdf.setFont("Helvetica-Bold", 8.2)
+            pdf.drawString(col["codigo"] + 1.2, y - 3.8 * mm, "Codigo")
+            pdf.drawString(col["cliente"] + 1.2, y - 3.8 * mm, "Cliente")
+            pdf.drawString(col["vendedor"] + 1.2, y - 3.8 * mm, "Vendedor")
+            pdf.drawString(col["pagto"] + 1.2, y - 3.8 * mm, "Pagamento")
+            pdf.drawString(col["itens"] + 1.2, y - 3.8 * mm, "Itens")
+            pdf.drawString(col["total"] + 1.2, y - 3.8 * mm, "Total")
+            y -= 8 * mm
+
+        draw_header_table()
+
         for venda in payload["vendas"]:
-            if y < 40 * mm:
-                pdf.showPage()
-                y = height - 20 * mm
-                pdf.setFont("Helvetica-Bold", 10)
-                pdf.drawString(left, y, f"MUNDO LED | Fechamento diário {payload['data_referencia']}")
-                y -= 7 * mm
+            pagamentos_texto = " | ".join([f"{row['tipo_pagamento']}: {format_brl(row['valor'])}" for row in venda.get("pagamentos", [])]) or "-"
+            cliente_lines = wrap_text(venda["cliente"], max_width=(col["vendedor"] - col["cliente"] - 2 * mm), font_size=8.1)[:2]
+            pagto_lines = wrap_text(pagamentos_texto, max_width=(col["itens"] - col["pagto"] - 2 * mm), font_size=7.9)[:2]
+            row_lines = max(len(cliente_lines), len(pagto_lines), 1)
+            row_h = max(7.2 * mm, (row_lines * 4.2 * mm) + 2.0 * mm)
+            ensure_space(row_h + 2 * mm)
+            if y < 24 * mm:
+                draw_header_table()
 
             pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
-            pagamentos_texto = " | ".join(
-                [f"{row['tipo_pagamento']}: {format_brl(row['valor'])}" for row in venda.get("pagamentos", [])]
-            ) or "-"
-            pay_lines = wrap_text(f"Pagamentos: {pagamentos_texto}", max_width=(right - left - 6 * mm), font_size=8.8)
-            obs_lines = wrap_text(f"Observações: {venda['observacoes']}", max_width=(right - left - 6 * mm), font_size=8.8) if venda["observacoes"] else []
-            bloco_h = (15 + (len(pay_lines) * 4.5) + (len(obs_lines) * 4.5)) * mm
-            pdf.roundRect(left, y - bloco_h, right - left, bloco_h, 2, fill=0, stroke=1)
+            pdf.rect(left, y - row_h + 1, right - left, row_h, fill=0, stroke=1)
+            for x in (col["cliente"], col["vendedor"], col["pagto"], col["itens"], col["total"]):
+                pdf.line(x, y + 1, x, y - row_h + 1)
 
-            pdf.setFont("Helvetica-Bold", 10)
-            pdf.drawString(left + 3 * mm, y - 5 * mm, f"Venda {venda['codigo']} | Cliente: {venda['cliente']}")
-            pdf.setFont("Helvetica", 9)
-            pdf.drawString(
-                left + 3 * mm,
-                y - 10 * mm,
-                f"Unidade: {venda['unidade']} | Vendedor: {venda['vendedor']} | Status: {venda['status']}",
-            )
-            pdf.drawString(left + 3 * mm, y - 14.5 * mm, f"Desconto: {format_brl(venda['desconto_total'])} | Total: {format_brl(venda['total_final'])}")
-            py_line = y - 19 * mm
-            for line in pay_lines[:4]:
-                pdf.drawString(left + 3 * mm, py_line, line)
-                py_line -= 4.4 * mm
-            for line in obs_lines[:3]:
-                pdf.drawString(left + 3 * mm, py_line, line)
-                py_line -= 4.4 * mm
-            y -= bloco_h + 2.5 * mm
+            base_y = y - 3.6 * mm
+            pdf.setFont("Helvetica", 8.1)
+            pdf.drawString(col["codigo"] + 1.2, base_y, venda["codigo"])
+            for i, line in enumerate(cliente_lines):
+                pdf.drawString(col["cliente"] + 1.2, base_y - (i * 4.1 * mm), line)
+            pdf.drawString(col["vendedor"] + 1.2, base_y, venda["vendedor"])
+            for i, line in enumerate(pagto_lines):
+                pdf.drawString(col["pagto"] + 1.2, base_y - (i * 4.1 * mm), line)
 
-            # Itens da venda
-            for item in venda["itens"]:
-                if y < 28 * mm:
-                    pdf.showPage()
-                    y = height - 20 * mm
-                    pdf.setFont("Helvetica-Bold", 10)
-                    pdf.drawString(left, y, f"MUNDO LED | Itens da venda {venda['codigo']}")
-                    y -= 7 * mm
-                pdf.setFont("Helvetica", 8.6)
-                pdf.drawString(
-                    left + 4 * mm,
-                    y,
-                    (
-                        f"- {item['produto']} | Qtd {item['quantidade']} | Unit {format_brl(item['preco_unitario'])} | "
-                        f"Desc {format_brl(item['desconto'])} | Subtotal {format_brl(item['subtotal'])}"
-                    )[:140],
-                )
-                y -= 4.5 * mm
-            y -= 1.5 * mm
+            qtd_txt = str(venda.get("qtd_itens", "0")).split(".")[0]
+            pdf.drawRightString(col["total"] - 1.0, base_y, qtd_txt)
+            pdf.setFont("Helvetica-Bold", 8.2)
+            pdf.drawRightString(right - 1.0, base_y, format_brl(venda["total_final"]).replace("R$ ", ""))
+            y -= row_h + 1.5 * mm
 
-        # Seção 2 - resumo final
-        if y < 45 * mm:
-            pdf.showPage()
-            y = height - 20 * mm
+        y -= 2 * mm
+
+        # secao consolidada
+        ensure_space(38 * mm)
         pdf.setFont("Helvetica-Bold", 11)
-        pdf.drawString(left, y, "Seção 2 - Resumo consolidado")
+        pdf.drawString(left, y, "Secao 2 - Resumo consolidado")
         y -= 6 * mm
         pdf.setFont("Helvetica", 10)
         pdf.drawString(left, y, f"Total de vendas: {payload['total_vendas']}")
@@ -293,25 +325,19 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
         pdf.drawString(left, y, f"Receita total: {format_brl(payload['total_receita'])}")
         y -= 5 * mm
         pdf.drawString(left, y, f"Descontos totais: {format_brl(payload['total_descontos'])}")
+        y -= 6 * mm
+        pdf.setFont("Helvetica-Bold", 9.8)
+        pdf.drawString(left, y, "Totais por forma de pagamento")
         y -= 5 * mm
-        pdf.setFont("Helvetica-Bold", 10)
-        pdf.drawString(left, y, "Totais por forma de pagamento:")
-        y -= 5 * mm
-        pdf.setFont("Helvetica", 10)
+        pdf.setFont("Helvetica", 9.6)
         for pagamento, total in payload["totais_por_pagamento"].items():
-            if y < 22 * mm:
-                pdf.showPage()
-                y = height - 20 * mm
-                pdf.setFont("Helvetica", 10)
+            ensure_space(6 * mm)
             pdf.drawString(left + 4 * mm, y, f"- {pagamento}: {format_brl(total)}")
             y -= 5 * mm
-        pdf.setFont("Helvetica", 10)
-        obs_final = wrap_text(f"Observações do fechamento: {observacoes or '-'}", max_width=(right - left), font_size=10)
-        for line in obs_final[:4]:
-            if y < 18 * mm:
-                pdf.showPage()
-                y = height - 20 * mm
-                pdf.setFont("Helvetica", 10)
+
+        obs_lines = wrap_text(f"Observacoes do fechamento: {observacoes or '-'}", max_width=(right - left), font_size=9.2)
+        for line in obs_lines[:6]:
+            ensure_space(6 * mm)
             pdf.drawString(left, y, line)
             y -= 5 * mm
 
@@ -323,14 +349,12 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
             "MUNDO LED - FECHAMENTO DIARIO DE CAIXA",
             f"Data de referencia: {payload['data_referencia']}",
             "",
-            "SECAO 1 - DETALHAMENTO DAS VENDAS",
+            "SECAO 1 - VENDAS DO DIA",
         ]
         for venda in payload["vendas"]:
-            pagamentos_txt = " | ".join(
-                [f"{p['tipo_pagamento']}: {format_brl(p['valor'])}" for p in venda.get("pagamentos", [])]
-            ) or "-"
+            pagamentos_txt = " | ".join([f"{p['tipo_pagamento']}: {format_brl(p['valor'])}" for p in venda.get("pagamentos", [])]) or "-"
             lines.append(
-                f"Venda {venda['codigo']} | Cliente {venda['cliente']} | Pgto {pagamentos_txt} | Total {format_brl(venda['total_final'])}"
+                f"Venda {venda['codigo']} | Cliente {venda['cliente']} | Vendedor {venda['vendedor']} | Pgto {pagamentos_txt} | Total {format_brl(venda['total_final'])}"
             )
         lines.extend(
             [
