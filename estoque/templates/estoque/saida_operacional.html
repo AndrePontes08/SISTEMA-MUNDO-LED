@@ -20,7 +20,7 @@
   <form method="post" id="saida-form">
     {% csrf_token %}
     <div class="grid">
-      <div><label>Loja</label>{{ form.unidade }}{{ form.unidade.errors }}</div>
+      <div><label>Unidade</label>{{ form.unidade }}{{ form.unidade.errors }}</div>
       <div><label>Tipo</label>{{ form.tipo }}{{ form.tipo.errors }}</div>
       <div><label>Data</label>{{ form.data_saida }}{{ form.data_saida.errors }}</div>
     </div>
@@ -50,7 +50,7 @@
 <div class="card" style="margin-top:12px;">
   <h3 style="margin:0 0 8px 0;">Últimas saídas</h3>
   <table>
-    <thead><tr><th>Data</th><th>Loja</th><th>Tipo</th><th>Produto</th><th>Qtd</th><th>Usuário</th></tr></thead>
+    <thead><tr><th>Data</th><th>Unidade</th><th>Tipo</th><th>Produto</th><th>Qtd</th><th>Usuário</th></tr></thead>
     <tbody>
       {% for row in ultimas_saidas %}
         <tr>

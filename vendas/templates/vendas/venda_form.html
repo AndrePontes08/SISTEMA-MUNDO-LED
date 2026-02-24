@@ -27,7 +27,8 @@
       </div>
       <div>
         <label for="{{ form.data_venda.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.data_venda.label }}</label>
-        {{ form.data_venda }}
+        {{ form.data_venda.as_hidden }}
+        <input type="text" value="{% now 'd/m/Y' %}" readonly style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d1d5db;background:#f9fafb;">
       </div>
       <div>
         <label for="{{ form.tipo_pagamento.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.tipo_pagamento.label }}</label>

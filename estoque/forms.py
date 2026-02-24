@@ -103,3 +103,7 @@ SaidaOperacionalItemFormSet = formset_factory(
     extra=3,
     can_delete=True,
 )
+
+
+class ImportCustoEstoqueForm(forms.Form):
+    arquivo = forms.FileField(help_text="CSV com colunas SKU e CUSTO_MEDIO (ou PRECO).")

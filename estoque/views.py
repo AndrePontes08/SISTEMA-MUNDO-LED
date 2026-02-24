@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import csv
+import io
+from decimal import Decimal, InvalidOperation
+
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import F
@@ -18,6 +22,7 @@ from core.services.paginacao import get_pagination_params
 from estoque.forms import (
     ContagemRapidaForm,
     ContagemRapidaItemFormSet,
+    ImportCustoEstoqueForm,
     MovimentoForm,
     MovimentoItemFormSet,
     ProdutoEstoqueForm,
@@ -116,6 +121,62 @@ class EstoqueCompletoView(EstoqueAccessMixin, ListView):
     template_name = "estoque/estoque_completo.html"
     context_object_name = "configs"
 
+    def post(self, request, *args, **kwargs):
+        form = ImportCustoEstoqueForm(request.POST, request.FILES)
+        if not form.is_valid():
+            messages.error(request, "Arquivo CSV inválido.")
+            return redirect("estoque:estoque_completo")
+
+        arquivo = form.cleaned_data["arquivo"]
+        raw = arquivo.read()
+        try:
+            text = raw.decode("utf-8")
+        except Exception:
+            text = raw.decode("latin-1")
+
+        sample = text[:4096]
+        try:
+            delimiter = csv.Sniffer().sniff(sample, delimiters=";,").delimiter
+        except Exception:
+            delimiter = ";"
+
+        reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+        atualizados = 0
+        ignorados = 0
+        for row in reader:
+            sku = (row.get("sku") or row.get("SKU") or "").strip()
+            custo_raw = (
+                row.get("custo_medio")
+                or row.get("CUSTO_MEDIO")
+                or row.get("custo")
+                or row.get("CUSTO")
+                or row.get("preco")
+                or row.get("PRECO")
+                or ""
+            )
+            custo_raw = str(custo_raw).strip().replace(".", "").replace(",", ".")
+            if not sku or not custo_raw:
+                ignorados += 1
+                continue
+            try:
+                custo = Decimal(custo_raw)
+            except (InvalidOperation, ValueError):
+                ignorados += 1
+                continue
+            cfg = ProdutoEstoque.objects.select_related("produto").filter(produto__sku=sku).first()
+            if not cfg:
+                ignorados += 1
+                continue
+            cfg.custo_medio = custo.quantize(Decimal("0.0001"))
+            cfg.save(update_fields=["custo_medio", "atualizado_em"])
+            atualizados += 1
+
+        messages.success(
+            request,
+            f"Importação concluída. Custos atualizados: {atualizados}. Linhas ignoradas: {ignorados}.",
+        )
+        return redirect("estoque:estoque_completo")
+
     def get_paginate_by(self, queryset):
         return get_pagination_params(self.request).page_size
 
@@ -128,16 +189,34 @@ class EstoqueCompletoView(EstoqueAccessMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        total_valor_fm = Decimal("0.00")
+        total_valor_ml = Decimal("0.00")
+        total_valor_geral = Decimal("0.00")
         for cfg in ctx["configs"]:
             garantir_estoque_unidades_produto(cfg.produto)
             rows = ProdutoEstoqueUnidade.objects.filter(produto=cfg.produto)
             cfg.saldo_fm = "0.000"
             cfg.saldo_ml = "0.000"
+            saldo_fm_dec = Decimal("0.000")
+            saldo_ml_dec = Decimal("0.000")
             for row in rows:
                 if row.unidade == UnidadeLoja.LOJA_1:
                     cfg.saldo_fm = str(row.saldo_atual)
+                    saldo_fm_dec = row.saldo_atual or Decimal("0.000")
                 elif row.unidade == UnidadeLoja.LOJA_2:
                     cfg.saldo_ml = str(row.saldo_atual)
+                    saldo_ml_dec = row.saldo_atual or Decimal("0.000")
+            custo = cfg.custo_medio or Decimal("0.0000")
+            cfg.valor_fm = (saldo_fm_dec * custo).quantize(Decimal("0.01"))
+            cfg.valor_ml = (saldo_ml_dec * custo).quantize(Decimal("0.01"))
+            cfg.valor_total = ((cfg.saldo_atual or Decimal("0.000")) * custo).quantize(Decimal("0.01"))
+            total_valor_fm += cfg.valor_fm
+            total_valor_ml += cfg.valor_ml
+            total_valor_geral += cfg.valor_total
+        ctx["import_form"] = ImportCustoEstoqueForm()
+        ctx["total_valor_fm"] = total_valor_fm.quantize(Decimal("0.01"))
+        ctx["total_valor_ml"] = total_valor_ml.quantize(Decimal("0.01"))
+        ctx["total_valor_geral"] = total_valor_geral.quantize(Decimal("0.01"))
         return ctx
 
 

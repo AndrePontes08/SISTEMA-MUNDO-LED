@@ -14,8 +14,14 @@ class VendaForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         if self.instance.pk is None:
-            self.fields["data_venda"].initial = self.initial.get("data_venda") or timezone.localdate()
-        self.fields["data_venda"].disabled = True
+            self.fields["data_venda"].initial = timezone.localdate()
+        else:
+            self.fields["data_venda"].initial = self.instance.data_venda
+        self.fields["data_venda"].widget = forms.DateInput(
+            format="%Y-%m-%d",
+            attrs={"type": "date", "readonly": "readonly"},
+        )
+        self.fields["data_venda"].input_formats = ["%Y-%m-%d"]
 
         if self.user and self.user.is_authenticated:
             is_manager = self.user.is_superuser or self.user.groups.filter(name="admin/gestor").exists()
@@ -43,7 +49,7 @@ class VendaForm(forms.ModelForm):
             "observacoes",
         ]
         widgets = {
-            "data_venda": forms.DateInput(attrs={"type": "date"}),
+            "data_venda": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date", "readonly": "readonly"}),
             "primeiro_vencimento": forms.DateInput(attrs={"type": "date"}),
             "observacoes": forms.Textarea(attrs={"rows": 3}),
         }

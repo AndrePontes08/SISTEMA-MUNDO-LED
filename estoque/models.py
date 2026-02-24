@@ -151,8 +151,8 @@ class AlertaEstoque(models.Model):
 
 
 class UnidadeLoja(models.TextChoices):
-    LOJA_1 = "LOJA_1", "FM COMERCIO - LOJA 1"
-    LOJA_2 = "LOJA_2", "ML COMERCIO - LOJA 2"
+    LOJA_1 = "LOJA_1", "FM COMERCIO - UNIDADE 1"
+    LOJA_2 = "LOJA_2", "ML COMERCIO - UNIDADE 2"
 
 
 class ProdutoEstoqueUnidade(models.Model):

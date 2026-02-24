@@ -15,8 +15,16 @@
     <input name="q" value="{{ request.GET.q }}" placeholder="Buscar produto..." style="padding:10px 12px; border-radius:10px; border:1px solid #d1d5db; min-width:240px;">
     <button type="submit" style="padding:10px 12px; border-radius:10px; border:1px solid #111827;">Buscar</button>
   </form>
+
+  <form method="post" enctype="multipart/form-data" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+    {% csrf_token %}
+    {{ import_form.arquivo }}
+    <button type="submit" style="padding:10px 12px; border-radius:10px; border:1px solid #111827;">Importar custos CSV</button>
+    <span class="muted">Colunas aceitas: `SKU` e `CUSTO_MEDIO` (ou `PRECO`).</span>
+  </form>
+
   <table>
-    <thead><tr><th>Produto</th><th>FM COMERCIO - LOJA 1</th><th>ML COMERCIO - LOJA 2</th><th>Total</th><th>Atualizado</th></tr></thead>
+    <thead><tr><th>Produto</th><th>FM COMERCIO - UNIDADE 1</th><th>ML COMERCIO - UNIDADE 2</th><th>Total</th><th>Custo medio</th><th>Valor FM</th><th>Valor ML</th><th>Valor Total</th><th>Atualizado</th></tr></thead>
     <tbody>
     {% for cfg in configs %}
       <tr>
@@ -24,10 +32,23 @@
         <td>{{ cfg.saldo_fm }}</td>
         <td>{{ cfg.saldo_ml }}</td>
         <td>{{ cfg.saldo_atual }}</td>
+        <td>R$ {{ cfg.custo_medio }}</td>
+        <td>R$ {{ cfg.valor_fm }}</td>
+        <td>R$ {{ cfg.valor_ml }}</td>
+        <td><strong>R$ {{ cfg.valor_total }}</strong></td>
         <td>{{ cfg.atualizado_em|date:"d/m/Y H:i" }}</td>
       </tr>
-    {% empty %}<tr><td colspan="5" class="muted">Nenhum registro.</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="9" class="muted">Nenhum registro.</td></tr>{% endfor %}
     </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5"><strong>Totais</strong></td>
+        <td><strong>R$ {{ total_valor_fm }}</strong></td>
+        <td><strong>R$ {{ total_valor_ml }}</strong></td>
+        <td><strong>R$ {{ total_valor_geral }}</strong></td>
+        <td></td>
+      </tr>
+    </tfoot>
   </table>
   {% if is_paginated %}
     <div class="pager">
