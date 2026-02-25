@@ -146,7 +146,7 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
         width, height = A4
         left = 12 * mm
         right = width - 12 * mm
-        line_h = 4.3 * mm
+        line_h = 4.6 * mm
         y = height - 15 * mm
 
         def wrap_text(text: str, max_width: float, font_name: str = "Helvetica", font_size: int = 8.6) -> list[str]:
@@ -219,7 +219,7 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
 
         # resumo
         pay_rows = list(payload["totais_por_pagamento"].items())
-        resumo_h = max(32 * mm, (18 + max(1, len(pay_rows)) * 4.8) * mm)
+        resumo_h = max(38 * mm, (24 + max(1, len(pay_rows)) * 5.2) * mm)
         ensure_space(resumo_h + 4 * mm)
         resumo_top = y
         resumo_bottom = y - resumo_h
@@ -227,21 +227,21 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
         pdf.roundRect(left, resumo_bottom, right - left, resumo_h, 3, fill=0, stroke=1)
 
         inner_y = resumo_top - 5 * mm
-        pdf.setFont("Helvetica-Bold", 10)
+        pdf.setFont("Helvetica-Bold", 12)
         pdf.drawString(left + 3 * mm, inner_y, "Resumo do dia")
-        inner_y -= 5.5 * mm
-        pdf.setFont("Helvetica", 9.5)
+        inner_y -= 7 * mm
+        pdf.setFont("Helvetica", 11)
         pdf.drawString(left + 3 * mm, inner_y, f"Total de vendas: {payload['total_vendas']}")
         inner_y -= line_h
         pdf.drawString(left + 3 * mm, inner_y, f"Descontos totais: {format_brl(payload['total_descontos'])}")
-        pdf.setFont("Helvetica-Bold", 11)
+        pdf.setFont("Helvetica-Bold", 14)
         pdf.drawRightString(right - 3 * mm, resumo_top - 10.5 * mm, f"Receita total: {format_brl(payload['total_receita'])}")
 
         inner_y -= 5 * mm
-        pdf.setFont("Helvetica-Bold", 9.3)
+        pdf.setFont("Helvetica-Bold", 10.2)
         pdf.drawString(left + 3 * mm, inner_y, "Totais por forma de pagamento")
         inner_y -= line_h
-        pdf.setFont("Helvetica", 8.8)
+        pdf.setFont("Helvetica", 10)
         if pay_rows:
             for pagamento, total in pay_rows:
                 pdf.drawString(left + 7 * mm, inner_y, f"- {pagamento}: {format_brl(total)}")
@@ -313,28 +313,11 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
             y -= row_h + 1.5 * mm
 
         y -= 2 * mm
-
-        # secao consolidada
-        ensure_space(38 * mm)
-        pdf.setFont("Helvetica-Bold", 11)
-        pdf.drawString(left, y, "Secao 2 - Resumo consolidado")
-        y -= 6 * mm
-        pdf.setFont("Helvetica", 10)
-        pdf.drawString(left, y, f"Total de vendas: {payload['total_vendas']}")
-        y -= 5 * mm
-        pdf.drawString(left, y, f"Receita total: {format_brl(payload['total_receita'])}")
-        y -= 5 * mm
-        pdf.drawString(left, y, f"Descontos totais: {format_brl(payload['total_descontos'])}")
-        y -= 6 * mm
-        pdf.setFont("Helvetica-Bold", 9.8)
-        pdf.drawString(left, y, "Totais por forma de pagamento")
-        y -= 5 * mm
-        pdf.setFont("Helvetica", 9.6)
-        for pagamento, total in payload["totais_por_pagamento"].items():
-            ensure_space(6 * mm)
-            pdf.drawString(left + 4 * mm, y, f"- {pagamento}: {format_brl(total)}")
-            y -= 5 * mm
-
+        ensure_space(18 * mm)
+        pdf.setFont("Helvetica-Bold", 10)
+        pdf.drawString(left, y, "Observacoes do fechamento")
+        y -= 5.5 * mm
+        pdf.setFont("Helvetica", 9.5)
         obs_lines = wrap_text(f"Observacoes do fechamento: {observacoes or '-'}", max_width=(right - left), font_size=9.2)
         for line in obs_lines[:6]:
             ensure_space(6 * mm)
@@ -359,7 +342,7 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
         lines.extend(
             [
                 "",
-                "SECAO 2 - RESUMO",
+                "SECAO 2 - OBSERVACOES",
                 f"Total de vendas: {payload['total_vendas']}",
                 f"Receita total: {format_brl(payload['total_receita'])}",
                 f"Descontos totais: {format_brl(payload['total_descontos'])}",

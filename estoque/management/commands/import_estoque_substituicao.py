@@ -19,6 +19,7 @@ class AggregatedRow:
     quantidade: Decimal
     custo_total: Decimal
     custo_medio_fallback: Decimal
+    valor_venda_fallback: Decimal
 
 
 def _dec(value) -> Decimal:
@@ -90,6 +91,7 @@ class Command(BaseCommand):
             quantidade = reservado + disponivel
             custo_total = _dec(row.get("Custo Total") or row.get("custo_total") or row.get("CUSTO_TOTAL"))
             custo_medio = _dec(row.get("Custo Médio") or row.get("custo_medio") or row.get("CUSTO_MEDIO"))
+            valor_venda = _dec(row.get("Valor de Venda") or row.get("valor_venda") or row.get("VALOR_VENDA"))
 
             existing = aggregated.get(sku)
             if existing is None:
@@ -99,12 +101,15 @@ class Command(BaseCommand):
                     quantidade=quantidade,
                     custo_total=custo_total,
                     custo_medio_fallback=custo_medio,
+                    valor_venda_fallback=valor_venda,
                 )
             else:
                 existing.quantidade += quantidade
                 existing.custo_total += custo_total
                 if custo_medio > 0:
                     existing.custo_medio_fallback = custo_medio
+                if valor_venda > 0:
+                    existing.valor_venda_fallback = valor_venda
                 if nome and len(nome) > len(existing.nome):
                     existing.nome = nome
         return aggregated
@@ -151,8 +156,14 @@ class Command(BaseCommand):
 
             if row.custo_total > 0 and quantidade > 0:
                 custo_medio = (row.custo_total / quantidade).quantize(Decimal("0.0001"))
+            elif row.custo_medio_fallback > 0:
+                custo_medio = row.custo_medio_fallback.quantize(Decimal("0.0001"))
+            elif row.valor_venda_fallback > 0:
+                # Fallback operacional: quando custo vem zerado no CSV, usa valor de venda
+                # para não deixar produto sem valor no estoque.
+                custo_medio = row.valor_venda_fallback.quantize(Decimal("0.0001"))
             else:
-                custo_medio = (row.custo_medio_fallback or Decimal("0")).quantize(Decimal("0.0001"))
+                custo_medio = Decimal("0.0000")
 
             cfg.saldo_atual = quantidade
             if custo_medio >= 0:
