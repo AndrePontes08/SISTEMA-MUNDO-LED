@@ -87,6 +87,7 @@ class ItemVendaForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["quantidade"].widget.attrs.setdefault("step", "1")
         self.fields["quantidade"].widget.attrs.setdefault("min", "1")
+        self.fields["preco_unitario"].label = "Valor unitário"
         self.fields["preco_unitario"].widget.attrs.setdefault("step", "0.01")
         self.fields["preco_unitario"].widget.attrs.setdefault("min", "0")
         self.fields["desconto"].label = "Desconto (%)"
@@ -121,7 +122,7 @@ class ItemVendaForm(forms.ModelForm):
         if preco is None:
             return preco
         if preco < 0:
-            raise forms.ValidationError("Preço unitário não pode ser negativo.")
+            raise forms.ValidationError("Valor unitário não pode ser negativo.")
         return preco.quantize(Decimal("0.01"))
 
     def clean_desconto(self):

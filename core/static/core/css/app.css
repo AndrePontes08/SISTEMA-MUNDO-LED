@@ -1,0 +1,92 @@
+/* Shared module styles */
+.sales-grid { display:grid; grid-template-columns: 1.5fr .9fr; gap: 12px; }
+.sales-panel { background:#fff; border:1px solid #dbe5f3; border-radius:14px; padding:14px; }
+.sales-section-title { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+.sales-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; }
+.sales-label { display:block; font-weight:700; margin-bottom:4px; color:#2c3f60; }
+.sales-help { color:#5f708d; font-size:.86rem; }
+.table-wrap { overflow:auto; border:1px solid #e6edf8; border-radius:12px; }
+.mini-input { min-width: 110px; }
+.item-product-meta { margin-top: 5px; font-size: .78rem; color: #5f708d; line-height: 1.35; }
+.summary-list { display:grid; gap:8px; }
+.summary-item { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:10px; background:#f7fbff; border:1px solid #e1ebfa; }
+.summary-item strong { font-size:1rem; }
+.summary-alert { padding:10px; border-radius:10px; margin-top:8px; font-weight:700; }
+.summary-alert.ok { background:#ecfdf3; color:#14532d; border:1px solid #bbf7d0; }
+.summary-alert.warn { background:#fffbeb; color:#78350f; border:1px solid #fde68a; }
+.list-clean { margin:0; padding-left:18px; display:grid; gap:4px; }
+.sales-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0 12px; }
+.sales-kpi { background:#f7fbff; border:1px solid #dce8fa; border-radius:12px; padding:10px 12px; }
+.sales-kpi .value { font-size:1.15rem; font-weight:800; }
+.status-pill { display:inline-block; padding:4px 8px; border-radius:999px; font-size:.78rem; font-weight:700; }
+.status-rascunho { background:#e2e8f0; color:#334155; }
+.status-confirmada { background:#dbeafe; color:#1d4ed8; }
+.status-faturada { background:#dcfce7; color:#166534; }
+.status-finalizada { background:#ecfeff; color:#155e75; }
+.status-cancelada { background:#fee2e2; color:#991b1b; }
+.items-mini { margin:0; padding-left:16px; color:#5f708d; }
+.actions-col { white-space:nowrap; }
+.detail-grid { display:grid; grid-template-columns: 1.2fr .8fr; gap:12px; }
+.meta-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; margin-top:10px; }
+.meta-item { background:#f7fbff; border:1px solid #dce8fa; border-radius:10px; padding:8px 10px; }
+.db-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; }
+.db-kpi { border:1px solid #dce8fa; background:#f7fbff; border-radius:12px; padding:12px; }
+.db-kpi .value { font-size:1.2rem; font-weight:800; }
+.bar-wrap { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+.bar-line { display:grid; grid-template-columns:42px 1fr auto; gap:8px; align-items:center; }
+.bar-track { background:#e5e7eb; border-radius:6px; height:14px; overflow:hidden; }
+.bar-fill { background:linear-gradient(90deg, #1b66d8, #0f3a74); height:100%; }
+.quick-sale-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  overflow: auto;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+  padding: 16px 18px 20px;
+}
+.quick-sale-close {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid #dbe5f3;
+  background: #ffffff;
+  color: #2c3f60;
+  text-decoration: none;
+  font-size: 1.05rem;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(17, 33, 61, 0.18);
+}
+.quick-sale-close:hover { background: #f8fbff; }
+.sales-grid--fullscreen {
+  min-height: calc(100vh - 36px);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  align-items: start;
+  margin: 0 auto;
+  max-width: 1680px;
+  padding-left: 36px;
+}
+
+@media (max-width: 1180px) {
+  .sales-grid { grid-template-columns: 1fr; }
+  .sales-grid--fullscreen {
+    min-height: 0;
+    padding-left: 0;
+  }
+  .quick-sale-overlay {
+    padding: 12px 10px 14px;
+  }
+  .quick-sale-close {
+    top: 8px;
+    left: 8px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .detail-grid { grid-template-columns: 1fr; }
+}

@@ -19,6 +19,7 @@ from django.views.generic import CreateView, DetailView, ListView, TemplateView,
 from core.services.paginacao import get_pagination_params
 from core.services.permissoes import GroupRequiredMixin
 from core.services.formato_brl import format_brl, payment_label, unit_label
+from estoque.models import ProdutoEstoque, ProdutoEstoqueUnidade
 from vendas.forms import CancelarVendaForm, FechamentoCaixaForm, ItemVendaFormSet, VendaForm
 from vendas.models import (
     FechamentoCaixaDiario,
@@ -221,6 +222,32 @@ def _persistir_pagamentos(venda: Venda, pagamentos: list[dict]) -> None:
         venda.save(update_fields=["tipo_pagamento", "atualizado_em"])
 
 
+def _build_produtos_info_map() -> dict[str, dict]:
+    info_map: dict[str, dict] = {}
+    cfg_rows = ProdutoEstoque.objects.values("produto_id", "custo_medio", "saldo_atual")
+    for row in cfg_rows:
+        produto_id = str(row["produto_id"])
+        info_map[produto_id] = {
+            "valor_unitario": str((row["custo_medio"] or Decimal("0.00")).quantize(Decimal("0.01"))),
+            "saldo_total": str((row["saldo_atual"] or Decimal("0.000")).quantize(Decimal("1"))),
+            "saldos_unidade": {},
+        }
+
+    unidade_rows = ProdutoEstoqueUnidade.objects.values("produto_id", "unidade", "saldo_atual")
+    for row in unidade_rows:
+        produto_id = str(row["produto_id"])
+        if produto_id not in info_map:
+            info_map[produto_id] = {
+                "valor_unitario": "0.00",
+                "saldo_total": "0",
+                "saldos_unidade": {},
+            }
+        info_map[produto_id]["saldos_unidade"][row["unidade"]] = str(
+            (row["saldo_atual"] or Decimal("0.000")).quantize(Decimal("1"))
+        )
+    return info_map
+
+
 class VendaListView(VendasAccessMixin, ListView):
     model = Venda
     template_name = "vendas/venda_list.html"
@@ -327,6 +354,7 @@ class VendaCreateView(VendasAccessMixin, CreateView):
             ctx["pagamentos_rows"] = [("", "")]
         ctx["empty_item_form"] = ItemVendaFormSet(instance=self.object).empty_form
         ctx["tipo_pagamento_choices"] = [(value, payment_label(value)) for value, _ in TipoPagamentoChoices.choices]
+        ctx["produtos_info_map"] = _build_produtos_info_map()
         return ctx
 
     def get_form_kwargs(self):
@@ -477,6 +505,7 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
             ctx["pagamentos_rows"] = [(tipo, str(valor)) for tipo, valor in atuais] or [(self.object.tipo_pagamento, str(self.object.total_final))]
         ctx["empty_item_form"] = ItemVendaFormSet(instance=self.object).empty_form
         ctx["tipo_pagamento_choices"] = [(value, payment_label(value)) for value, _ in TipoPagamentoChoices.choices]
+        ctx["produtos_info_map"] = _build_produtos_info_map()
         return ctx
 
     def get_form_kwargs(self):

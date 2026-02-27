@@ -4,182 +4,387 @@
 {% block page_title %}Venda / Orçamento{% endblock %}
 
 {% block content %}
-<div class="card">
-  <form method="post" id="venda-form">
-    {% csrf_token %}
-    <h2>Dados principais</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+<style>
+  .quick-sale-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    overflow: auto;
+    background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+    padding: 16px 18px 20px;
+  }
+  .quick-sale-close {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid #dbe5f3;
+    background: #ffffff;
+    color: #2c3f60;
+    text-decoration: none;
+    font-size: 1.05rem;
+    font-weight: 700;
+    box-shadow: 0 4px 14px rgba(17, 33, 61, 0.18);
+  }
+  .quick-sale-close:hover { background: #f8fbff; }
+  .sales-grid--fullscreen {
+    min-height: calc(100vh - 36px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    align-items: start;
+    gap: 12px;
+    margin: 0 auto;
+    max-width: 1680px;
+    padding-left: 36px;
+  }
+  @media (max-width: 1180px) {
+    .sales-grid--fullscreen {
+      min-height: 0;
+      grid-template-columns: 1fr;
+      padding-left: 0;
+    }
+    .quick-sale-overlay {
+      padding: 12px 10px 14px;
+    }
+    .quick-sale-close {
+      top: 8px;
+      left: 8px;
+    }
+  }
+  #itens-table {
+    table-layout: fixed;
+  }
+  #itens-table th {
+    white-space: nowrap;
+    font-size: .84rem;
+  }
+  #itens-table .col-produto {
+    width: 50%;
+  }
+  #itens-table .col-quantidade,
+  #itens-table .col-valor-unitario,
+  #itens-table .col-desconto {
+    width: 10%;
+  }
+  #itens-table .col-subtotal {
+    width: 11%;
+  }
+  #itens-table .col-acao {
+    width: 9%;
+  }
+  #itens-table td.item-col-produto {
+    min-width: 390px;
+  }
+  #itens-table td.item-col-compacta {
+    min-width: 96px;
+  }
+  #itens-table td.item-col-compacta input {
+    min-height: 34px;
+    padding: 6px 7px;
+    font-size: .84rem;
+  }
+  #itens-table .js-remove-row {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    min-height: 28px;
+    font-size: .95rem;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    border-radius: 8px;
+  }
+  #pagamentos-table {
+    table-layout: fixed;
+  }
+  #pagamentos-table th {
+    white-space: nowrap;
+    font-size: .84rem;
+  }
+  #pagamentos-table .col-pag-forma {
+    width: 60%;
+  }
+  #pagamentos-table .col-pag-valor {
+    width: 22%;
+  }
+  #pagamentos-table .col-pag-acao {
+    width: 18%;
+  }
+  #pagamentos-table td.pag-col-valor {
+    min-width: 88px;
+  }
+  #pagamentos-table td.pag-col-valor input {
+    min-height: 34px;
+    padding: 6px 7px;
+    font-size: .84rem;
+  }
+  #pagamentos-table td.pag-col-acao {
+    white-space: nowrap;
+  }
+  #pagamentos-table .js-remove-pagamento,
+  #pagamentos-table .js-add-pagamento-inline {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    min-height: 28px;
+    font-size: .95rem;
+    font-weight: 700;
+    line-height: 1;
+    border-radius: 8px;
+  }
+  #pagamentos-table .js-add-pagamento-inline {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+  }
+  #pagamentos-table .js-add-pagamento-inline:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+  }
+  #pagamentos-table .js-remove-pagamento {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+  }
+  #pagamentos-table .js-remove-pagamento:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+  }
+</style>
+<div class="quick-sale-overlay">
+  {% if form.instance.pk %}
+    <a class="quick-sale-close" href="{% url 'vendas:venda_detail' form.instance.pk %}" title="Fechar tela de venda" aria-label="Fechar tela de venda">×</a>
+  {% else %}
+    <a class="quick-sale-close" href="{% url 'vendas:venda_list' %}" title="Fechar tela de venda" aria-label="Fechar tela de venda">×</a>
+  {% endif %}
+<form method="post" id="venda-form" class="sales-grid sales-grid--fullscreen">
+  {% csrf_token %}
+
+  <div class="sales-panel">
+    <div class="sales-section-title">
+      <h2 style="margin:0;">1) Dados principais</h2>
+      <span class="sales-help">Preencha os dados da venda antes de adicionar itens.</span>
+    </div>
+
+    {{ form.data_venda.as_hidden }}
+
+    <div class="sales-fields">
       <div>
-        <label for="{{ form.tipo_documento.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.tipo_documento.label }}</label>
+        <label class="sales-label" for="{{ form.tipo_documento.id_for_label }}">{{ form.tipo_documento.label }}</label>
         {{ form.tipo_documento }}
       </div>
       <div>
-        <label for="{{ form.cliente.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.cliente.label }}</label>
+        <label class="sales-label" for="{{ form.cliente.id_for_label }}">{{ form.cliente.label }}</label>
         {{ form.cliente }}
       </div>
       <div>
-        <label for="{{ form.vendedor.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.vendedor.label }}</label>
+        <label class="sales-label" for="{{ form.vendedor.id_for_label }}">{{ form.vendedor.label }}</label>
         {{ form.vendedor }}
       </div>
       <div>
-        <label for="{{ form.unidade_saida.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.unidade_saida.label }}</label>
+        <label class="sales-label" for="{{ form.unidade_saida.id_for_label }}">{{ form.unidade_saida.label }}</label>
         {{ form.unidade_saida }}
       </div>
       <div>
-        <label for="{{ form.data_venda.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.data_venda.label }}</label>
-        {{ form.data_venda.as_hidden }}
-        <input type="text" value="{% now 'd/m/Y' %}" readonly style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d1d5db;background:#f9fafb;">
+        <label class="sales-label">Data da venda</label>
+        <input type="text" value="{% if form.instance.pk %}{{ form.instance.data_venda|date:'d/m/Y' }}{% else %}{% now 'd/m/Y' %}{% endif %}" readonly>
       </div>
       <div>
-        <label for="{{ form.tipo_pagamento.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.tipo_pagamento.label }}</label>
+        <label class="sales-label" for="{{ form.tipo_pagamento.id_for_label }}">{{ form.tipo_pagamento.label }}</label>
         {{ form.tipo_pagamento }}
-        <small class="muted">Forma principal da venda (usada como referência).</small>
       </div>
       <div id="field-numero-parcelas">
-        <label for="{{ form.numero_parcelas.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.numero_parcelas.label }}</label>
+        <label class="sales-label" for="{{ form.numero_parcelas.id_for_label }}">{{ form.numero_parcelas.label }}</label>
         {{ form.numero_parcelas }}
       </div>
       <div id="field-intervalo-parcelas">
-        <label for="{{ form.intervalo_parcelas_dias.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.intervalo_parcelas_dias.label }}</label>
+        <label class="sales-label" for="{{ form.intervalo_parcelas_dias.id_for_label }}">{{ form.intervalo_parcelas_dias.label }}</label>
         {{ form.intervalo_parcelas_dias }}
       </div>
       <div id="field-primeiro-vencimento">
-        <label for="{{ form.primeiro_vencimento.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.primeiro_vencimento.label }}</label>
+        <label class="sales-label" for="{{ form.primeiro_vencimento.id_for_label }}">{{ form.primeiro_vencimento.label }}</label>
         {{ form.primeiro_vencimento }}
       </div>
       <div id="field-acrescimo">
-        <label for="{{ form.acrescimo.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.acrescimo.label }}</label>
+        <label class="sales-label" for="{{ form.acrescimo.id_for_label }}">{{ form.acrescimo.label }}</label>
         {{ form.acrescimo }}
       </div>
       <div style="grid-column:1 / -1;">
-        <label for="{{ form.observacoes.id_for_label }}" style="display:block;font-weight:600;margin-bottom:4px;">{{ form.observacoes.label }}</label>
+        <label class="sales-label" for="{{ form.observacoes.id_for_label }}">{{ form.observacoes.label }}</label>
         {{ form.observacoes }}
       </div>
-      <div style="grid-column:1 / -1;">
-        <label style="display:block;font-weight:600;margin-bottom:6px;">Formas de pagamento da venda</label>
-        <p class="muted" style="margin:0 0 8px 0;">A soma das formas deve ser igual ao total final da venda.</p>
-        <table style="width:100%;border-collapse:collapse;" id="pagamentos-table">
-          <thead>
-            <tr>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Forma de pagamento</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Valor (R$)</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Ação</th>
-            </tr>
-          </thead>
-          <tbody id="pagamentos-body">
-            {% for tipo_val, valor_val in pagamentos_rows %}
-              <tr class="pagamento-row">
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
-                  <select name="pagamentos_tipo" style="width:100%;">
-                    <option value="">Selecione</option>
-                    {% for opt_val, opt_label in tipo_pagamento_choices %}
-                      <option value="{{ opt_val }}" {% if tipo_val == opt_val %}selected{% endif %}>{{ opt_label }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
-                  <input type="number" step="0.01" min="0" name="pagamentos_valor" value="{{ valor_val }}" style="width:100%;">
-                </td>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
-                  <button type="button" class="btn js-remove-pagamento">Remover</button>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <div style="margin-top:8px;">
-          <button class="btn" type="button" id="add-pagamento-btn">Adicionar forma de pagamento</button>
-        </div>
-      </div>
     </div>
+
     {% if form.non_field_errors %}
       <div class="msg error" style="margin-top:10px;">{{ form.non_field_errors|striptags }}</div>
     {% endif %}
 
-    <h3 style="margin-top:18px;">Itens da venda / orçamento</h3>
-    <p class="muted">Adicione quantos produtos forem necessários. O desconto por item é percentual (%). Acima de 10% exige autorização de administrador/gerente.</p>
-    {{ itens_formset.management_form }}
-    <table style="width:100%;border-collapse:collapse;" id="itens-table">
-      <thead>
-        <tr>
-          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Produto</th>
-          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Quantidade</th>
-          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Preco unitario</th>
-          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Desconto (%)</th>
-          <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Acao</th>
-        </tr>
-      </thead>
-      <tbody id="itens-body">
-        {% for item_form in itens_formset %}
-          <tr class="item-row">
-            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item_form.produto }}</td>
-            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item_form.quantidade }}</td>
-            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item_form.preco_unitario }}</td>
-            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ item_form.desconto }}</td>
-            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
-              <button type="button" class="btn js-remove-row">Remover</button>
-              <span style="display:none;">{{ item_form.DELETE }}</span>
-              {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
-    <template id="empty-item-template">
-      <tr class="item-row">
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ empty_item_form.produto }}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ empty_item_form.quantidade }}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ empty_item_form.preco_unitario }}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ empty_item_form.desconto }}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
-          <button type="button" class="btn js-remove-row">Remover</button>
-          <span style="display:none;">{{ empty_item_form.DELETE }}</span>
-          {% for hidden in empty_item_form.hidden_fields %}{{ hidden }}{% endfor %}
-        </td>
-      </tr>
-    </template>
-
-    <template id="empty-pagamento-template">
-      <tr class="pagamento-row">
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
-          <select name="pagamentos_tipo" style="width:100%;">
-            <option value="">Selecione</option>
-            {% for opt_val, opt_label in tipo_pagamento_choices %}
-              <option value="{{ opt_val }}">{{ opt_label }}</option>
-            {% endfor %}
-          </select>
-        </td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
-          <input type="number" step="0.01" min="0" name="pagamentos_valor" style="width:100%;">
-        </td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">
-          <button type="button" class="btn js-remove-pagamento">Remover</button>
-        </td>
-      </tr>
-    </template>
-
-    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn" type="button" id="add-item-btn">Adicionar produto</button>
-      <button class="btn" type="submit">Salvar</button>
-      <a class="btn" href="{% url 'vendas:venda_list' %}">Voltar</a>
+    <div class="sales-section-title" style="margin-top:16px;">
+      <h2 style="margin:0;">2) Itens</h2>
+      <button class="btn" type="button" id="add-item-btn">+ Adicionar produto</button>
     </div>
 
-    <div style="margin-top:14px;padding:12px;border:1px solid #e5e7eb;border-radius:10px;">
-      <strong>Autorização de desconto acima de 10%</strong>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:8px;">
+    {{ itens_formset.management_form }}
+    <div class="table-wrap">
+      <table id="itens-table">
+        <thead>
+          <tr>
+            <th class="col-produto">Produto</th>
+            <th class="col-quantidade">Quantidade</th>
+            <th class="col-valor-unitario">Preço</th>
+            <th class="col-desconto">Desconto</th>
+            <th class="col-subtotal">Subtotal</th>
+            <th class="col-acao">Ação</th>
+          </tr>
+        </thead>
+        <tbody id="itens-body">
+          {% for item_form in itens_formset %}
+            <tr class="item-row">
+              <td class="item-col-produto">
+                {{ item_form.produto }}
+                <div class="item-product-meta js-item-product-meta">Selecione um produto para ver valor e estoque.</div>
+              </td>
+              <td class="mini-input item-col-compacta">{{ item_form.quantidade }}</td>
+              <td class="mini-input item-col-compacta">{{ item_form.preco_unitario }}</td>
+              <td class="mini-input item-col-compacta">{{ item_form.desconto }}</td>
+              <td><strong class="js-row-subtotal">R$ 0,00</strong></td>
+              <td>
+                <button type="button" class="btn btn-secondary js-remove-row" title="Remover item" aria-label="Remover item">×</button>
+                <span style="display:none;">{{ item_form.DELETE }}</span>
+                {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if itens_formset.non_form_errors %}
+      <div class="msg error" style="margin-top:10px;">{{ itens_formset.non_form_errors|striptags }}</div>
+    {% endif %}
+
+    <div class="sales-section-title" style="margin-top:16px;">
+      <h2 style="margin:0;">3) Pagamentos</h2>
+    </div>
+    <p class="sales-help">A soma dos pagamentos deve fechar com o total final da venda.</p>
+
+    <div class="table-wrap">
+      <table id="pagamentos-table">
+        <thead>
+          <tr>
+            <th class="col-pag-forma">Forma de pagamento</th>
+            <th class="col-pag-valor">Valor (R$)</th>
+            <th class="col-pag-acao">Ação</th>
+          </tr>
+        </thead>
+        <tbody id="pagamentos-body">
+          {% for tipo_val, valor_val in pagamentos_rows %}
+            <tr class="pagamento-row">
+              <td>
+                <select name="pagamentos_tipo">
+                  <option value="">Selecione</option>
+                  {% for opt_val, opt_label in tipo_pagamento_choices %}
+                    <option value="{{ opt_val }}" {% if tipo_val == opt_val %}selected{% endif %}>{{ opt_label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="mini-input pag-col-valor"><input type="text" inputmode="decimal" name="pagamentos_valor" value="{{ valor_val }}" placeholder="0,00"></td>
+              <td class="pag-col-acao">
+                <button type="button" class="btn btn-secondary js-remove-pagamento" title="Remover forma de pagamento" aria-label="Remover forma de pagamento">×</button>
+                <button type="button" class="btn btn-secondary js-add-pagamento-inline" title="Adicionar forma de pagamento" aria-label="Adicionar forma de pagamento">+</button>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sales-panel" style="margin-top:14px; background:#f7fbff;">
+      <h3 style="margin-top:0;">Autorização para desconto acima de 10%</h3>
+      <p class="sales-help">Preencha somente quando houver desconto acima do limite.</p>
+      <div class="sales-fields" style="margin-top:8px;">
         <div>
-          <label for="id_desconto_autorizador" style="display:block;font-weight:600;margin-bottom:4px;">Usuário autorizador</label>
-          <input id="id_desconto_autorizador" name="desconto_autorizador" type="text" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d1d5db;">
+          <label class="sales-label" for="id_desconto_autorizador">Usuário autorizador</label>
+          <input id="id_desconto_autorizador" name="desconto_autorizador" type="text">
         </div>
         <div>
-          <label for="id_desconto_senha" style="display:block;font-weight:600;margin-bottom:4px;">Senha do autorizador</label>
-          <input id="id_desconto_senha" name="desconto_senha" type="password" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d1d5db;">
+          <label class="sales-label" for="id_desconto_senha">Senha do autorizador</label>
+          <input id="id_desconto_senha" name="desconto_senha" type="password">
         </div>
       </div>
     </div>
-  </form>
+
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" type="submit">Salvar venda</button>
+      <a class="btn btn-secondary" href="{% url 'vendas:venda_list' %}">Voltar</a>
+    </div>
+  </div>
+
+  <aside class="sales-panel" style="position:sticky; top:14px; height:fit-content;">
+    <h2 style="margin-top:0;">Resumo da venda</h2>
+    <div class="summary-list" style="margin-top:10px;">
+      <div class="summary-item"><span>Subtotal dos itens</span><strong id="sum-subtotal-itens">R$ 0,00</strong></div>
+      <div class="summary-item"><span>Desconto estimado</span><strong id="sum-desconto">R$ 0,00</strong></div>
+      <div class="summary-item"><span>Acréscimo</span><strong id="sum-acrescimo">R$ 0,00</strong></div>
+      <div class="summary-item"><span>Total da venda</span><strong id="sum-total-venda">R$ 0,00</strong></div>
+      <div class="summary-item"><span>Total em pagamentos</span><strong id="sum-total-pagamentos">R$ 0,00</strong></div>
+      <div class="summary-item"><span>Diferença</span><strong id="sum-diferenca">R$ 0,00</strong></div>
+    </div>
+    <div id="sum-status" class="summary-alert warn">Verifique os valores antes de salvar.</div>
+
+    <h3 style="margin:14px 0 6px;">Checklist rápido</h3>
+    <ul class="list-clean sales-help">
+      <li>Cliente, vendedor e unidade preenchidos.</li>
+      <li>Pelo menos 1 item com quantidade e valor unitário.</li>
+      <li>Pagamentos fechando com o total final.</li>
+      <li>Se desconto &gt; 10%, incluir autorizador.</li>
+    </ul>
+  </aside>
+
+  <template id="empty-item-template">
+    <tr class="item-row">
+      <td class="item-col-produto">
+        {{ empty_item_form.produto }}
+        <div class="item-product-meta js-item-product-meta">Selecione um produto para ver valor e estoque.</div>
+      </td>
+      <td class="mini-input item-col-compacta">{{ empty_item_form.quantidade }}</td>
+      <td class="mini-input item-col-compacta">{{ empty_item_form.preco_unitario }}</td>
+      <td class="mini-input item-col-compacta">{{ empty_item_form.desconto }}</td>
+      <td><strong class="js-row-subtotal">R$ 0,00</strong></td>
+      <td>
+        <button type="button" class="btn btn-secondary js-remove-row" title="Remover item" aria-label="Remover item">×</button>
+        <span style="display:none;">{{ empty_item_form.DELETE }}</span>
+        {% for hidden in empty_item_form.hidden_fields %}{{ hidden }}{% endfor %}
+      </td>
+    </tr>
+  </template>
+
+  <template id="empty-pagamento-template">
+    <tr class="pagamento-row">
+      <td>
+        <select name="pagamentos_tipo">
+          <option value="">Selecione</option>
+          {% for opt_val, opt_label in tipo_pagamento_choices %}
+            <option value="{{ opt_val }}">{{ opt_label }}</option>
+          {% endfor %}
+        </select>
+      </td>
+      <td class="mini-input pag-col-valor"><input type="text" inputmode="decimal" name="pagamentos_valor" placeholder="0,00"></td>
+      <td class="pag-col-acao">
+        <button type="button" class="btn btn-secondary js-remove-pagamento" title="Remover forma de pagamento" aria-label="Remover forma de pagamento">×</button>
+        <button type="button" class="btn btn-secondary js-add-pagamento-inline" title="Adicionar forma de pagamento" aria-label="Adicionar forma de pagamento">+</button>
+      </td>
+    </tr>
+  </template>
+</form>
 </div>
+
+{{ produtos_info_map|json_script:"produtos-info-map" }}
 
 <script>
   (function () {
@@ -189,40 +394,108 @@
     const template = document.getElementById("empty-item-template");
     const pagamentosBody = document.getElementById("pagamentos-body");
     const pagamentoTemplate = document.getElementById("empty-pagamento-template");
-    const addPagamentoBtn = document.getElementById("add-pagamento-btn");
-
-    function bindRemove(btn) {
-      btn.addEventListener("click", function () {
-        const row = btn.closest(".item-row");
-        if (!row) return;
-        const deleteInput = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
-        if (deleteInput) {
-          deleteInput.checked = true;
-        }
-        row.style.display = "none";
-      });
-    }
-
-    body.querySelectorAll(".js-remove-row").forEach(bindRemove);
-
-    addBtn.addEventListener("click", function () {
-      const idx = parseInt(totalForms.value, 10);
-      const html = template.innerHTML.replaceAll("__prefix__", String(idx));
-      const wrapper = document.createElement("tbody");
-      wrapper.innerHTML = html.trim();
-      const row = wrapper.querySelector(".item-row");
-      body.appendChild(row);
-      bindRemove(row.querySelector(".js-remove-row"));
-      totalForms.value = String(idx + 1);
-    });
-
     const tipoPagamento = document.getElementById("id_tipo_pagamento");
+    const acrescimoInput = document.getElementById("id_acrescimo");
+
+    const subtotalItensEl = document.getElementById("sum-subtotal-itens");
+    const descontoEl = document.getElementById("sum-desconto");
+    const acrescimoEl = document.getElementById("sum-acrescimo");
+    const totalVendaEl = document.getElementById("sum-total-venda");
+    const totalPagEl = document.getElementById("sum-total-pagamentos");
+    const diferencaEl = document.getElementById("sum-diferenca");
+    const statusEl = document.getElementById("sum-status");
+    const produtosInfoEl = document.getElementById("produtos-info-map");
+    const produtosInfo = produtosInfoEl ? JSON.parse(produtosInfoEl.textContent || "{}") : {};
+    const unidadeSaidaEl = document.getElementById("id_unidade_saida");
+
     const boletoFields = [
       document.getElementById("field-numero-parcelas"),
       document.getElementById("field-intervalo-parcelas"),
       document.getElementById("field-primeiro-vencimento"),
       document.getElementById("field-acrescimo")
     ];
+
+    function parseNumber(value) {
+      if (value === null || value === undefined) return 0;
+      const raw = String(value).trim().replace(/\s/g, "").replace(/R\$/gi, "");
+      if (!raw) return 0;
+      let normalized = raw;
+      if (raw.includes(",") && raw.includes(".")) {
+        normalized = raw.replace(/\./g, "").replace(",", ".");
+      } else if (raw.includes(",")) {
+        normalized = raw.replace(",", ".");
+      }
+      const num = Number(normalized);
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    function toBRL(value) {
+      return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    }
+
+    function toNumber(value) {
+      const num = Number(String(value || "0").replace(",", "."));
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    function renderProdutoMeta(row, shouldAutofillPrice) {
+      if (!row) return;
+      const produtoSelect = row.querySelector('select[name$="-produto"]');
+      const precoInput = row.querySelector('input[name$="-preco_unitario"]');
+      const metaEl = row.querySelector(".js-item-product-meta");
+      if (!produtoSelect || !metaEl) return;
+
+      const produtoId = produtoSelect.value;
+      if (!produtoId || !produtosInfo[produtoId]) {
+        metaEl.textContent = "Selecione um produto para ver valor e estoque.";
+        return;
+      }
+
+      const info = produtosInfo[produtoId];
+      const valorUnitario = toNumber(info.valor_unitario);
+      if (precoInput && shouldAutofillPrice) {
+        const precoAtual = toNumber(precoInput.value);
+        const autoFillOrigem = precoInput.dataset.autoFillOrigem || "";
+        const podeAtualizar = precoAtual <= 0 || autoFillOrigem === produtoId;
+        if (podeAtualizar) {
+          precoInput.value = valorUnitario.toFixed(2);
+          precoInput.dataset.autoFillOrigem = produtoId;
+        }
+      }
+      if (precoInput && !shouldAutofillPrice && !precoInput.value.trim()) {
+        precoInput.value = valorUnitario.toFixed(2);
+        precoInput.dataset.autoFillOrigem = produtoId;
+      }
+
+      const saldoTotal = Math.max(0, Math.trunc(toNumber(info.saldo_total)));
+      let saldoUnidade = saldoTotal;
+      const unidadeSaida = unidadeSaidaEl ? unidadeSaidaEl.value : "";
+      if (unidadeSaida && info.saldos_unidade && Object.prototype.hasOwnProperty.call(info.saldos_unidade, unidadeSaida)) {
+        saldoUnidade = Math.max(0, Math.trunc(toNumber(info.saldos_unidade[unidadeSaida])));
+      }
+
+      metaEl.textContent =
+        "Valor unitário sugerido: " + toBRL(valorUnitario) + " | Estoque disponível: " + saldoUnidade + " un";
+    }
+
+    function bindProdutoSelect(row) {
+      if (!row) return;
+      const produtoSelect = row.querySelector('select[name$="-produto"]');
+      if (!produtoSelect) return;
+      produtoSelect.addEventListener("change", function () {
+        renderProdutoMeta(row, true);
+        recalculateSummary();
+      });
+      renderProdutoMeta(row, false);
+    }
+
+    function refreshProdutoMetas() {
+      const rows = body ? body.querySelectorAll(".item-row") : [];
+      rows.forEach(function (row) {
+        if (row.style.display === "none") return;
+        renderProdutoMeta(row, false);
+      });
+    }
 
     function hasBoletoInRows() {
       const selects = pagamentosBody ? pagamentosBody.querySelectorAll('select[name="pagamentos_tipo"]') : [];
@@ -240,43 +513,173 @@
       });
     }
 
-    function bindPagamentoRemove(btn) {
+    function bindRemove(btn) {
       btn.addEventListener("click", function () {
-        const row = btn.closest(".pagamento-row");
-        if (row) {
+        const row = btn.closest(".item-row");
+        if (!row) return;
+        const deleteInput = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+        if (deleteInput) {
+          deleteInput.checked = true;
+          row.style.display = "none";
+        } else {
           row.remove();
-          toggleBoletoFields();
         }
+        recalculateSummary();
       });
     }
 
-    if (tipoPagamento) {
-      tipoPagamento.addEventListener("change", toggleBoletoFields);
+    function bindPagamentoRemove(btn) {
+      btn.addEventListener("click", function () {
+        const row = btn.closest(".pagamento-row");
+        if (row) row.remove();
+        if (pagamentosBody && pagamentosBody.querySelectorAll(".pagamento-row").length === 0) {
+          addPagamentoRow(null);
+        }
+        toggleBoletoFields();
+        recalculateSummary();
+      });
+    }
+
+    function bindPagamentoValorInput(input) {
+      if (!input) return;
+      input.addEventListener("blur", function () {
+        const n = parseNumber(input.value);
+        if (n <= 0) {
+          input.value = "";
+          recalculateSummary();
+          return;
+        }
+        input.value = n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        recalculateSummary();
+      });
+    }
+
+    function bindPagamentoAdd(btn) {
+      btn.addEventListener("click", function () {
+        const currentRow = btn.closest(".pagamento-row");
+        addPagamentoRow(currentRow);
+      });
+    }
+
+    function addPagamentoRow(afterRow) {
+      if (!pagamentoTemplate || !pagamentosBody) return;
+      const wrapper = document.createElement("tbody");
+      wrapper.innerHTML = pagamentoTemplate.innerHTML.trim();
+      const row = wrapper.querySelector(".pagamento-row");
+      if (!row) return;
+      if (afterRow && afterRow.parentNode === pagamentosBody) {
+        pagamentosBody.insertBefore(row, afterRow.nextSibling);
+      } else {
+        pagamentosBody.appendChild(row);
+      }
+      const removeBtn = row.querySelector(".js-remove-pagamento");
+      if (removeBtn) bindPagamentoRemove(removeBtn);
+      const addBtnInline = row.querySelector(".js-add-pagamento-inline");
+      if (addBtnInline) bindPagamentoAdd(addBtnInline);
+      const valorInput = row.querySelector('input[name="pagamentos_valor"]');
+      if (valorInput) bindPagamentoValorInput(valorInput);
+      const select = row.querySelector('select[name="pagamentos_tipo"]');
+      if (select) select.addEventListener("change", toggleBoletoFields);
       toggleBoletoFields();
+      recalculateSummary();
+    }
+
+    function recalculateSummary() {
+      let brutoItens = 0;
+      let descontoItens = 0;
+
+      const rows = body ? body.querySelectorAll(".item-row") : [];
+      rows.forEach(function (row) {
+        if (row.style.display === "none") return;
+
+        const qtdInput = row.querySelector('input[name$="-quantidade"]');
+        const precoInput = row.querySelector('input[name$="-preco_unitario"]');
+        const descontoInput = row.querySelector('input[name$="-desconto"]');
+        const subtotalCell = row.querySelector(".js-row-subtotal");
+
+        const qtd = parseNumber(qtdInput ? qtdInput.value : 0);
+        const preco = parseNumber(precoInput ? precoInput.value : 0);
+        const descontoPct = parseNumber(descontoInput ? descontoInput.value : 0);
+
+        const bruto = Math.max(0, qtd * preco);
+        const descontoValor = Math.max(0, bruto * (descontoPct / 100));
+        const subtotal = Math.max(0, bruto - descontoValor);
+
+        brutoItens += bruto;
+        descontoItens += descontoValor;
+
+        if (subtotalCell) {
+          subtotalCell.textContent = toBRL(subtotal);
+        }
+      });
+
+      const acrescimo = Math.max(0, parseNumber(acrescimoInput ? acrescimoInput.value : 0));
+      const totalVenda = Math.max(0, brutoItens - descontoItens + acrescimo);
+
+      let totalPagamentos = 0;
+      const pagamentos = pagamentosBody ? pagamentosBody.querySelectorAll('input[name="pagamentos_valor"]') : [];
+      pagamentos.forEach(function (input) {
+        totalPagamentos += Math.max(0, parseNumber(input.value));
+      });
+
+      const diferenca = totalVenda - totalPagamentos;
+
+      subtotalItensEl.textContent = toBRL(brutoItens);
+      descontoEl.textContent = toBRL(descontoItens);
+      acrescimoEl.textContent = toBRL(acrescimo);
+      totalVendaEl.textContent = toBRL(totalVenda);
+      totalPagEl.textContent = toBRL(totalPagamentos);
+      diferencaEl.textContent = toBRL(diferenca);
+
+      if (Math.abs(diferenca) < 0.005) {
+        statusEl.className = "summary-alert ok";
+        statusEl.textContent = "Resumo conferido: pagamentos fecham com o total.";
+      } else {
+        statusEl.className = "summary-alert warn";
+        statusEl.textContent = "Atenção: ajuste os pagamentos para fechar com o total.";
+      }
+    }
+
+    if (body) {
+      body.querySelectorAll(".js-remove-row").forEach(bindRemove);
+      body.querySelectorAll(".item-row").forEach(bindProdutoSelect);
+      body.addEventListener("input", recalculateSummary);
+      body.addEventListener("change", recalculateSummary);
     }
 
     if (pagamentosBody) {
       pagamentosBody.querySelectorAll(".js-remove-pagamento").forEach(bindPagamentoRemove);
+      pagamentosBody.querySelectorAll(".js-add-pagamento-inline").forEach(bindPagamentoAdd);
+      pagamentosBody.querySelectorAll('input[name="pagamentos_valor"]').forEach(bindPagamentoValorInput);
+      pagamentosBody.addEventListener("input", recalculateSummary);
       pagamentosBody.querySelectorAll('select[name="pagamentos_tipo"]').forEach(function (sel) {
         sel.addEventListener("change", toggleBoletoFields);
       });
     }
 
-    if (addPagamentoBtn && pagamentoTemplate && pagamentosBody) {
-      addPagamentoBtn.addEventListener("click", function () {
+    if (addBtn && template && totalForms) {
+      addBtn.addEventListener("click", function () {
+        const idx = parseInt(totalForms.value, 10);
+        const html = template.innerHTML.replaceAll("__prefix__", String(idx));
         const wrapper = document.createElement("tbody");
-        wrapper.innerHTML = pagamentoTemplate.innerHTML.trim();
-        const row = wrapper.querySelector(".pagamento-row");
-        pagamentosBody.appendChild(row);
-        const removeBtn = row.querySelector(".js-remove-pagamento");
-        if (removeBtn) bindPagamentoRemove(removeBtn);
-        const select = row.querySelector('select[name="pagamentos_tipo"]');
-        if (select) {
-          select.addEventListener("change", toggleBoletoFields);
-        }
-        toggleBoletoFields();
+        wrapper.innerHTML = html.trim();
+        const row = wrapper.querySelector(".item-row");
+        body.appendChild(row);
+        const removeBtn = row.querySelector(".js-remove-row");
+        if (removeBtn) bindRemove(removeBtn);
+        bindProdutoSelect(row);
+        totalForms.value = String(idx + 1);
+        recalculateSummary();
       });
     }
+
+    if (tipoPagamento) tipoPagamento.addEventListener("change", toggleBoletoFields);
+    if (acrescimoInput) acrescimoInput.addEventListener("input", recalculateSummary);
+    if (unidadeSaidaEl) unidadeSaidaEl.addEventListener("change", refreshProdutoMetas);
+
+    toggleBoletoFields();
+    refreshProdutoMetas();
+    recalculateSummary();
   })();
 </script>
 {% endblock %}
