@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="{% static 'core/img/logo_mundo_led.png' %}">
   <link rel="stylesheet" href="{% static 'core/css/app.css' %}">
-  <title>{% block title %}AUTO TECH{% endblock %}</title>
+  <title>{% block title %}AUTO TECH Enterprise Suite{% endblock %}</title>
   <style>
     :root {
       --brand-900: #082349;
@@ -71,14 +71,30 @@
       border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 14px;
       background: linear-gradient(160deg, rgba(44, 125, 240, 0.34), rgba(16, 33, 70, 0.38));
-      display: grid;
-      place-items: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
       margin-bottom: 14px;
-      letter-spacing: .08em;
-      font-weight: 800;
-      font-size: 1.2rem;
       text-align: center;
       padding: 10px;
+    }
+    .brand-primary {
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: #f5f9ff;
+      text-shadow: 0 2px 10px rgba(11, 26, 52, 0.45);
+    }
+    .brand-accent { color: #8ad1ff; }
+    .brand-sub {
+      font-size: .64rem;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: #dbeafe;
+      opacity: .92;
     }
 
     .menu-group { margin-bottom: 14px; }
@@ -384,7 +400,10 @@
 <body>
 <div class="layout">
   <aside class="sidebar" id="sidebar-nav">
-    <div class="brand">AUTO TECH</div>
+    <div class="brand">
+      <div class="brand-primary">AUTO <span class="brand-accent">TECH</span></div>
+      <div class="brand-sub">Enterprise Suite</div>
+    </div>
 
     <div class="menu-group">
       <div class="menu-title">Geral</div>
@@ -458,7 +477,7 @@
     <div class="topbar">
       <div class="topbar-left">
         <button class="menu-toggle" id="js-sidebar-toggle" type="button">Menu</button>
-        <strong>{% block page_title %}AUTO TECH{% endblock %}</strong>
+        <strong>{% block page_title %}AUTO TECH Enterprise Suite{% endblock %}</strong>
       </div>
       <span class="muted">Usuário: {% if request.user.is_authenticated %}{{ request.user.username }}{% else %}-{% endif %}</span>
     </div>

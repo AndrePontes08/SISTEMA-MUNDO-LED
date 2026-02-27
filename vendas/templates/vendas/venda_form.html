@@ -385,6 +385,7 @@
 </div>
 
 {{ produtos_info_map|json_script:"produtos-info-map" }}
+{{ produto_info_url_base|json_script:"produto-info-url-base" }}
 
 <script>
   (function () {
@@ -406,6 +407,8 @@
     const statusEl = document.getElementById("sum-status");
     const produtosInfoEl = document.getElementById("produtos-info-map");
     const produtosInfo = produtosInfoEl ? JSON.parse(produtosInfoEl.textContent || "{}") : {};
+    const produtoInfoUrlBaseEl = document.getElementById("produto-info-url-base");
+    const produtoInfoUrlBase = produtoInfoUrlBaseEl ? JSON.parse(produtoInfoUrlBaseEl.textContent || "\"\"") : "";
     const unidadeSaidaEl = document.getElementById("id_unidade_saida");
 
     const boletoFields = [
@@ -438,6 +441,35 @@
       return Number.isFinite(num) ? num : 0;
     }
 
+    function buildProdutoInfoUrl(produtoId) {
+      if (!produtoInfoUrlBase) return "";
+      const unidade = unidadeSaidaEl ? (unidadeSaidaEl.value || "") : "";
+      const baseUrl = produtoInfoUrlBase.replace(/\/0\/$/, "/" + String(produtoId) + "/");
+      if (!unidade) return baseUrl;
+      return baseUrl + "?unidade=" + encodeURIComponent(unidade);
+    }
+
+    function refreshProdutoInfoFromServer(produtoId, row, shouldAutofillPrice) {
+      const url = buildProdutoInfoUrl(produtoId);
+      if (!url) return;
+      fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+        .then(function (resp) {
+          if (!resp.ok) return null;
+          return resp.json();
+        })
+        .then(function (info) {
+          if (!info) return;
+          produtosInfo[String(produtoId)] = info;
+          const produtoSelect = row ? row.querySelector('select[name$="-produto"]') : null;
+          if (!produtoSelect || String(produtoSelect.value) !== String(produtoId)) return;
+          renderProdutoMeta(row, shouldAutofillPrice);
+          recalculateSummary();
+        })
+        .catch(function () {
+          // fallback silencioso para manter UX fluida mesmo se endpoint falhar
+        });
+    }
+
     function renderProdutoMeta(row, shouldAutofillPrice) {
       if (!row) return;
       const produtoSelect = row.querySelector('select[name$="-produto"]');
@@ -446,8 +478,16 @@
       if (!produtoSelect || !metaEl) return;
 
       const produtoId = produtoSelect.value;
-      if (!produtoId || !produtosInfo[produtoId]) {
+      if (!produtoId) {
         metaEl.textContent = "Selecione um produto para ver valor e estoque.";
+        return;
+      }
+      if (!produtosInfo[produtoId]) {
+        if (precoInput && shouldAutofillPrice) {
+          precoInput.value = "0.00";
+          precoInput.dataset.autoFillOrigem = produtoId;
+        }
+        metaEl.textContent = "Valor sugerido indisponível no histórico | Estoque disponível: 0 un";
         return;
       }
 
@@ -484,9 +524,15 @@
       if (!produtoSelect) return;
       produtoSelect.addEventListener("change", function () {
         renderProdutoMeta(row, true);
+        if (produtoSelect.value) {
+          refreshProdutoInfoFromServer(produtoSelect.value, row, true);
+        }
         recalculateSummary();
       });
       renderProdutoMeta(row, false);
+      if (produtoSelect.value) {
+        refreshProdutoInfoFromServer(produtoSelect.value, row, false);
+      }
     }
 
     function refreshProdutoMetas() {
@@ -494,6 +540,10 @@
       rows.forEach(function (row) {
         if (row.style.display === "none") return;
         renderProdutoMeta(row, false);
+        const produtoSelect = row.querySelector('select[name$="-produto"]');
+        if (produtoSelect && produtoSelect.value) {
+          refreshProdutoInfoFromServer(produtoSelect.value, row, false);
+        }
       });
     }
 

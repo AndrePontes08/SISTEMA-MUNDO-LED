@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView, UpdateView
 
-from compras.models import Compra, CompraEvento
+from compras.models import Compra, CompraEvento, Produto
 from core.services.permissoes import GroupRequiredMixin
 from core.services.paginacao import get_pagination_params
 
@@ -186,8 +186,11 @@ class EstoqueCompletoView(EstoqueReadOnlyAccessMixin, ListView):
                 continue
             cfg = ProdutoEstoque.objects.select_related("produto").filter(produto__sku=sku).first()
             if not cfg:
-                ignorados += 1
-                continue
+                produto = Produto.objects.filter(sku=sku).first()
+                if not produto:
+                    ignorados += 1
+                    continue
+                cfg = ProdutoEstoque.objects.create(produto=produto)
             cfg.custo_medio = custo.quantize(Decimal("0.0001"))
             cfg.save(update_fields=["custo_medio", "atualizado_em"])
             atualizados += 1

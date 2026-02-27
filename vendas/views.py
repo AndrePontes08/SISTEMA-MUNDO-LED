@@ -9,13 +9,14 @@ from django.contrib.auth import authenticate
 from django.contrib import messages
 from django.db.models import Count, DecimalField, Prefetch, Q, Sum, Value
 from django.db.models.functions import Coalesce
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView
 
+from compras.models import ItemCompra, Produto
 from core.services.paginacao import get_pagination_params
 from core.services.permissoes import GroupRequiredMixin
 from core.services.formato_brl import format_brl, payment_label, unit_label
@@ -224,12 +225,76 @@ def _persistir_pagamentos(venda: Venda, pagamentos: list[dict]) -> None:
 
 def _build_produtos_info_map() -> dict[str, dict]:
     info_map: dict[str, dict] = {}
+
+    # Fallback de preço por produto: último preço unitário registrado em compras.
+    last_buy_price_by_produto: dict[int, Decimal] = {}
+    for row in (
+        ItemCompra.objects.select_related("compra")
+        .order_by("produto_id", "-compra__data_compra", "-id")
+        .values("produto_id", "preco_unitario")
+    ):
+        produto_id = int(row["produto_id"])
+        if produto_id in last_buy_price_by_produto:
+            continue
+        last_buy_price_by_produto[produto_id] = (row["preco_unitario"] or Decimal("0.00")).quantize(Decimal("0.01"))
+
+    # Fallback adicional: último preço unitário utilizado em vendas.
+    last_sale_price_by_produto: dict[int, Decimal] = {}
+    for row in (
+        ItemVenda.objects.select_related("venda")
+        .order_by("produto_id", "-venda__data_venda", "-id")
+        .values("produto_id", "preco_unitario")
+    ):
+        produto_id = int(row["produto_id"])
+        if produto_id in last_sale_price_by_produto:
+            continue
+        last_sale_price_by_produto[produto_id] = (row["preco_unitario"] or Decimal("0.00")).quantize(Decimal("0.01"))
+
     cfg_rows = ProdutoEstoque.objects.values("produto_id", "custo_medio", "saldo_atual")
     for row in cfg_rows:
-        produto_id = str(row["produto_id"])
+        produto_id_int = int(row["produto_id"])
+        produto_id = str(produto_id_int)
+        custo = (row["custo_medio"] or Decimal("0.00")).quantize(Decimal("0.01"))
+        valor_unitario = custo
+        if valor_unitario <= 0:
+            valor_unitario = last_buy_price_by_produto.get(produto_id_int, Decimal("0.00"))
+        if valor_unitario <= 0:
+            valor_unitario = last_sale_price_by_produto.get(produto_id_int, Decimal("0.00"))
         info_map[produto_id] = {
-            "valor_unitario": str((row["custo_medio"] or Decimal("0.00")).quantize(Decimal("0.01"))),
+            "valor_unitario": str(valor_unitario.quantize(Decimal("0.01"))),
             "saldo_total": str((row["saldo_atual"] or Decimal("0.000")).quantize(Decimal("1"))),
+            "saldos_unidade": {},
+        }
+
+    # Produtos sem configuração de estoque ainda recebem preço sugerido de compra.
+    for produto_id_int, preco in last_buy_price_by_produto.items():
+        produto_id = str(produto_id_int)
+        if produto_id in info_map:
+            continue
+        info_map[produto_id] = {
+            "valor_unitario": str(preco.quantize(Decimal("0.01"))),
+            "saldo_total": "0",
+            "saldos_unidade": {},
+        }
+
+    for produto_id_int, preco in last_sale_price_by_produto.items():
+        produto_id = str(produto_id_int)
+        if produto_id in info_map:
+            continue
+        info_map[produto_id] = {
+            "valor_unitario": str(preco.quantize(Decimal("0.01"))),
+            "saldo_total": "0",
+            "saldos_unidade": {},
+        }
+
+    # Garante entrada para todo produto ativo, evitando campo de preço em branco no front.
+    for produto_id in Produto.objects.filter(ativo=True).values_list("id", flat=True):
+        key = str(int(produto_id))
+        if key in info_map:
+            continue
+        info_map[key] = {
+            "valor_unitario": "0.00",
+            "saldo_total": "0",
             "saldos_unidade": {},
         }
 
@@ -246,6 +311,47 @@ def _build_produtos_info_map() -> dict[str, dict]:
             (row["saldo_atual"] or Decimal("0.000")).quantize(Decimal("1"))
         )
     return info_map
+
+
+def _resolve_produto_info(produto_id: int, unidade: str = "") -> dict:
+    produto_id_int = int(produto_id)
+    cfg_row = ProdutoEstoque.objects.filter(produto_id=produto_id_int).values("custo_medio", "saldo_atual").first()
+    custo = (cfg_row["custo_medio"] if cfg_row else Decimal("0.00")) or Decimal("0.00")
+    saldo_total = (cfg_row["saldo_atual"] if cfg_row else Decimal("0.000")) or Decimal("0.000")
+
+    valor_unitario = custo.quantize(Decimal("0.01"))
+    if valor_unitario <= 0:
+        last_buy = (
+            ItemCompra.objects.select_related("compra")
+            .filter(produto_id=produto_id_int)
+            .order_by("-compra__data_compra", "-id")
+            .values_list("preco_unitario", flat=True)
+            .first()
+        )
+        valor_unitario = (last_buy or Decimal("0.00")).quantize(Decimal("0.01"))
+    if valor_unitario <= 0:
+        last_sale = (
+            ItemVenda.objects.select_related("venda")
+            .filter(produto_id=produto_id_int)
+            .order_by("-venda__data_venda", "-id")
+            .values_list("preco_unitario", flat=True)
+            .first()
+        )
+        valor_unitario = (last_sale or Decimal("0.00")).quantize(Decimal("0.01"))
+
+    saldos_unidade = {
+        row["unidade"]: str(((row["saldo_atual"] or Decimal("0.000")).quantize(Decimal("1"))))
+        for row in ProdutoEstoqueUnidade.objects.filter(produto_id=produto_id_int).values("unidade", "saldo_atual")
+    }
+    saldo_unidade = saldos_unidade.get(unidade, str((saldo_total or Decimal("0.000")).quantize(Decimal("1"))))
+
+    return {
+        "produto_id": produto_id_int,
+        "valor_unitario": str(valor_unitario.quantize(Decimal("0.01"))),
+        "saldo_total": str((saldo_total or Decimal("0.000")).quantize(Decimal("1"))),
+        "saldo_unidade": saldo_unidade,
+        "saldos_unidade": saldos_unidade,
+    }
 
 
 class VendaListView(VendasAccessMixin, ListView):
@@ -355,6 +461,7 @@ class VendaCreateView(VendasAccessMixin, CreateView):
         ctx["empty_item_form"] = ItemVendaFormSet(instance=self.object).empty_form
         ctx["tipo_pagamento_choices"] = [(value, payment_label(value)) for value, _ in TipoPagamentoChoices.choices]
         ctx["produtos_info_map"] = _build_produtos_info_map()
+        ctx["produto_info_url_base"] = reverse("vendas:produto_info", kwargs={"produto_id": 0})
         return ctx
 
     def get_form_kwargs(self):
@@ -506,6 +613,7 @@ class VendaUpdateView(VendasAccessMixin, UpdateView):
         ctx["empty_item_form"] = ItemVendaFormSet(instance=self.object).empty_form
         ctx["tipo_pagamento_choices"] = [(value, payment_label(value)) for value, _ in TipoPagamentoChoices.choices]
         ctx["produtos_info_map"] = _build_produtos_info_map()
+        ctx["produto_info_url_base"] = reverse("vendas:produto_info", kwargs={"produto_id": 0})
         return ctx
 
     def get_form_kwargs(self):
@@ -734,6 +842,26 @@ class OrcamentoConverterView(VendasAccessMixin, View):
         except Exception as exc:
             messages.error(request, f"Falha ao converter orçamento: {exc}")
         return redirect("vendas:venda_detail", pk=venda.pk)
+
+
+class ProdutoInfoView(VendasAccessMixin, View):
+    def get(self, request, *args, **kwargs):
+        produto_id = kwargs.get("produto_id")
+        unidade = (request.GET.get("unidade") or "").strip()
+        try:
+            info = _resolve_produto_info(produto_id=int(produto_id), unidade=unidade)
+        except Exception:
+            return JsonResponse(
+                {
+                    "produto_id": int(produto_id),
+                    "valor_unitario": "0.00",
+                    "saldo_total": "0",
+                    "saldo_unidade": "0",
+                    "saldos_unidade": {},
+                },
+                status=200,
+            )
+        return JsonResponse(info, status=200)
 
 
 class VendaPDFView(VendasAccessMixin, View):
