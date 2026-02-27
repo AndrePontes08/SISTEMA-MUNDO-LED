@@ -99,7 +99,7 @@ def _pdf_business_lines(venda: Venda) -> list[str]:
     else:
         parcelamento = "A vista"
     lines = [
-        "MUNDO LED",
+        "AUTO TECH",
         f"{venda.get_tipo_documento_display()} {venda.codigo_identificacao}",
         f"Cliente: {venda.cliente.nome}",
         f"Data emissao: {venda.data_venda:%d/%m/%Y}",
@@ -134,7 +134,7 @@ def _pdf_business_lines(venda: Venda) -> list[str]:
             "Assinatura cliente: __________________________",
             "Assinatura vendedor: _________________________",
             "",
-            "MUNDO LED - Documento gerado pelo ERP",
+            "AUTO TECH - Documento gerado pelo ERP",
         ]
     )
     return lines
@@ -802,7 +802,7 @@ class VendaPDFView(VendasAccessMixin, View):
                     pass
             pdf.setFillColor(colors.HexColor("#111827"))
             pdf.setFont("Helvetica-Bold", 18)
-            pdf.drawString(left + 26 * mm, height - 19 * mm, "MUNDO LED")
+            pdf.drawString(left + 26 * mm, height - 19 * mm, "AUTO TECH")
             pdf.setFont("Helvetica", 10)
             pdf.setFillColor(colors.HexColor("#374151"))
             pdf.drawString(left + 26 * mm, height - 25 * mm, "Documento comercial de venda/orçamento")
@@ -885,7 +885,7 @@ class VendaPDFView(VendasAccessMixin, View):
                     y = height - 26 * mm
                     pdf.setFont("Helvetica-Bold", 11)
                     pdf.setFillColor(colors.HexColor("#111827"))
-                    pdf.drawString(left, y, f"MUNDO LED | {venda.codigo_identificacao}")
+                    pdf.drawString(left, y, f"AUTO TECH | {venda.codigo_identificacao}")
                     y -= 7 * mm
                     pdf.setFillColor(colors.HexColor("#f3f4f6"))
                     pdf.rect(x0, y - row_h + 2, x_end - x0, row_h, fill=1, stroke=0)
@@ -971,7 +971,7 @@ class VendaPDFView(VendasAccessMixin, View):
             pdf.drawString(left, y, "Assinatura cliente")
             pdf.drawString(110 * mm, y, "Assinatura vendedor")
             y -= 9 * mm
-            pdf.drawString(left, y, "MUNDO LED - Documento gerado pelo ERP")
+            pdf.drawString(left, y, "AUTO TECH - Documento gerado pelo ERP")
             pdf.showPage()
             pdf.save()
             buffer.seek(0)

@@ -34,7 +34,7 @@ GROUPS_TO_ENSURE = [
 
 
 class Command(BaseCommand):
-    help = "Cria grupos e provisiona usuarios da MUNDO LED com senha temporaria e troca obrigatoria."
+    help = "Cria grupos e provisiona usuarios da AUTO TECH com senha temporaria e troca obrigatoria."
 
     def add_arguments(self, parser):
         parser.add_argument(
