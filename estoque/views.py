@@ -52,7 +52,7 @@ from estoque.services.statistics_service import EstoqueStatisticsService
 from estoque.services.transferencias_service import transferir_lote_entre_unidades
 
 
-class EstoqueAccessMixin(GroupRequiredMixin):
+class EstoqueReadOnlyAccessMixin(GroupRequiredMixin):
     required_groups = ("admin/gestor", "compras/estoque", "estoquista", "vendedor")
 
 
@@ -62,11 +62,15 @@ def _is_admin_autorizado(user) -> bool:
     if user.is_superuser:
         return True
     return user.groups.filter(
-        name__in=("admin/gestor", "compras/estoque", "estoquista", "vendedor")
+        name__in=("admin/gestor", "compras/estoque", "estoquista")
     ).exists()
 
 
-class EstoqueDashboardView(EstoqueAccessMixin, TemplateView):
+class EstoqueManageAccessMixin(GroupRequiredMixin):
+    required_groups = ("admin/gestor", "compras/estoque", "estoquista")
+
+
+class EstoqueDashboardView(EstoqueReadOnlyAccessMixin, TemplateView):
     template_name = "estoque/dashboard.html"
 
     def get_context_data(self, **kwargs):
@@ -90,7 +94,7 @@ class EstoqueDashboardView(EstoqueAccessMixin, TemplateView):
         return ctx
 
 
-class ProdutoEstoqueListView(EstoqueAccessMixin, ListView):
+class ProdutoEstoqueListView(EstoqueReadOnlyAccessMixin, ListView):
     model = ProdutoEstoque
     template_name = "estoque/produtoestoque_list.html"
     context_object_name = "configs"
@@ -126,7 +130,7 @@ class ProdutoEstoqueListView(EstoqueAccessMixin, ListView):
         return ctx
 
 
-class EstoqueCompletoView(EstoqueAccessMixin, ListView):
+class EstoqueCompletoView(EstoqueReadOnlyAccessMixin, ListView):
     model = ProdutoEstoque
     template_name = "estoque/estoque_completo.html"
     context_object_name = "configs"
@@ -135,7 +139,7 @@ class EstoqueCompletoView(EstoqueAccessMixin, ListView):
         if not _is_admin_autorizado(request.user):
             messages.error(
                 request,
-                "Somente os setores autorizados (vendas/estoque/gestao) podem alterar custos de produtos.",
+                "Somente os setores autorizados de estoque/gestao podem alterar custos de produtos.",
             )
             return redirect("estoque:estoque_completo")
 
@@ -237,7 +241,7 @@ class EstoqueCompletoView(EstoqueAccessMixin, ListView):
         return ctx
 
 
-class ProdutoEstoqueUpdateView(EstoqueAccessMixin, UpdateView):
+class ProdutoEstoqueUpdateView(EstoqueManageAccessMixin, UpdateView):
     model = ProdutoEstoque
     form_class = ProdutoEstoqueForm
     template_name = "estoque/produtoestoque_form.html"
@@ -247,7 +251,7 @@ class ProdutoEstoqueUpdateView(EstoqueAccessMixin, UpdateView):
         return reverse("estoque:produtoestoque_list")
 
 
-class MovimentoCreateView(EstoqueAccessMixin, TemplateView):
+class MovimentoCreateView(EstoqueManageAccessMixin, TemplateView):
     template_name = "estoque/movimento_form.html"
     item_formset_prefix = "itens"
 
@@ -330,7 +334,7 @@ class MovimentoCreateView(EstoqueAccessMixin, TemplateView):
         return redirect("estoque:dashboard")
 
 
-class MovimentoListView(EstoqueAccessMixin, ListView):
+class MovimentoListView(EstoqueManageAccessMixin, ListView):
     model = EstoqueMovimento
     template_name = "estoque/movimento_list.html"
     context_object_name = "movimentos"
@@ -346,7 +350,7 @@ class MovimentoListView(EstoqueAccessMixin, ListView):
         return qs
 
 
-class EntradaPorCompraView(EstoqueAccessMixin, TemplateView):
+class EntradaPorCompraView(EstoqueManageAccessMixin, TemplateView):
     """
     Ação simples: cria entradas para os itens da compra.
     """
@@ -366,7 +370,7 @@ class EntradaPorCompraView(EstoqueAccessMixin, TemplateView):
         return ctx
 
 
-class RecebimentoCompraListView(EstoqueAccessMixin, ListView):
+class RecebimentoCompraListView(EstoqueManageAccessMixin, ListView):
     model = Compra
     template_name = "estoque/recebimento_list.html"
     context_object_name = "compras"
@@ -387,7 +391,7 @@ class RecebimentoCompraListView(EstoqueAccessMixin, ListView):
         return qs
 
 
-class RecebimentoCompraDetailView(EstoqueAccessMixin, DetailView):
+class RecebimentoCompraDetailView(EstoqueManageAccessMixin, DetailView):
     model = Compra
     template_name = "estoque/recebimento_detail.html"
     context_object_name = "compra"
@@ -400,7 +404,7 @@ class RecebimentoCompraDetailView(EstoqueAccessMixin, DetailView):
         )
 
 
-class ConfirmarRecebimentoCompraView(EstoqueAccessMixin, View):
+class ConfirmarRecebimentoCompraView(EstoqueManageAccessMixin, View):
     def post(self, request, *args, **kwargs):
         compra = Compra.objects.filter(pk=kwargs["pk"]).select_related("fornecedor").prefetch_related("itens__produto").first()
         if not compra:
@@ -435,7 +439,7 @@ class ConfirmarRecebimentoCompraView(EstoqueAccessMixin, View):
         return redirect("estoque:recebimento_list")
 
 
-class IndicadoresEstoqueView(EstoqueAccessMixin, TemplateView):
+class IndicadoresEstoqueView(EstoqueManageAccessMixin, TemplateView):
     template_name = "estoque/indicadores.html"
 
     @staticmethod
@@ -475,7 +479,7 @@ class IndicadoresEstoqueView(EstoqueAccessMixin, TemplateView):
         return ctx
 
 
-class TransferenciaCreateView(EstoqueAccessMixin, TemplateView):
+class TransferenciaCreateView(EstoqueManageAccessMixin, TemplateView):
     template_name = "estoque/transferencia_form.html"
     item_formset_prefix = "itens"
 
@@ -562,7 +566,7 @@ class TransferenciaCreateView(EstoqueAccessMixin, TemplateView):
         return redirect("estoque:transferencia_create")
 
 
-class ContagemRapidaView(EstoqueAccessMixin, TemplateView):
+class ContagemRapidaView(EstoqueManageAccessMixin, TemplateView):
     template_name = "estoque/contagem_rapida.html"
     item_formset_prefix = "itens"
 
@@ -650,7 +654,7 @@ class ContagemRapidaView(EstoqueAccessMixin, TemplateView):
         return redirect("estoque:contagem_rapida")
 
 
-class SaidaOperacionalView(EstoqueAccessMixin, TemplateView):
+class SaidaOperacionalView(EstoqueManageAccessMixin, TemplateView):
     template_name = "estoque/saida_operacional.html"
     item_formset_prefix = "itens"
 

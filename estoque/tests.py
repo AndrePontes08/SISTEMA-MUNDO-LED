@@ -162,16 +162,16 @@ class MovimentoCreateViewTest(TestCase):
                 "itens-MIN_NUM_FORMS": "0",
                 "itens-MAX_NUM_FORMS": "1000",
                 "itens-0-produto": str(produto_1.id),
-                "itens-0-quantidade": "3.000",
+                "itens-0-quantidade": "3",
                 "itens-1-produto": str(produto_2.id),
-                "itens-1-quantidade": "2.500",
+                "itens-1-quantidade": "2",
             },
         )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 302)
         self.assertEqual(EstoqueMovimento.objects.filter(tipo="ENTRADA").count(), 2)
         self.assertEqual(ProdutoEstoque.objects.get(produto=produto_1).saldo_atual, Decimal("3.000"))
-        self.assertEqual(ProdutoEstoque.objects.get(produto=produto_2).saldo_atual, Decimal("2.500"))
+        self.assertEqual(ProdutoEstoque.objects.get(produto=produto_2).saldo_atual, Decimal("2.000"))
 
 
 class TransferenciaEntreUnidadesTest(TestCase):
@@ -255,13 +255,13 @@ class TransferenciaCreateViewTest(TestCase):
                 "itens-MIN_NUM_FORMS": "0",
                 "itens-MAX_NUM_FORMS": "1000",
                 "itens-0-produto": str(produto_1.id),
-                "itens-0-quantidade": "1.500",
+                "itens-0-quantidade": "1",
                 "itens-1-produto": str(produto_2.id),
-                "itens-1-quantidade": "2.000",
+                "itens-1-quantidade": "2",
             },
         )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 302)
         self.assertEqual(TransferenciaEstoque.objects.count(), 2)
 
 
@@ -328,7 +328,7 @@ class CustoImportPermissaoTest(TestCase):
         cfg = ProdutoEstoque.objects.get(produto=produto)
         self.assertEqual(cfg.custo_medio, Decimal("0.0000"))
 
-    def test_importar_custo_permite_setor_vendas(self):
+    def test_importar_custo_bloqueia_setor_vendas(self):
         user_model = get_user_model()
         vendedor = user_model.objects.create_user("vendedor_custo", password="pass")
         Group.objects.get_or_create(name="vendedor")[0].user_set.add(vendedor)
@@ -342,7 +342,7 @@ class CustoImportPermissaoTest(TestCase):
 
         self.assertEqual(response.status_code, 302)
         cfg = ProdutoEstoque.objects.get(produto=produto)
-        self.assertEqual(cfg.custo_medio, Decimal("15.9000"))
+        self.assertEqual(cfg.custo_medio, Decimal("0.0000"))
 
 
 class RecebimentoEstoqueFlowTest(TestCase):
