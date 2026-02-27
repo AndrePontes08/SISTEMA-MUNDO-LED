@@ -196,7 +196,7 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
 
             pdf.setFillColor(colors.HexColor("#111827"))
             pdf.setFont("Helvetica-Bold", 15)
-            pdf.drawString(left + 21 * mm, height - 17 * mm, "AUTO TECH")
+            pdf.drawString(left + 21 * mm, height - 17 * mm, "MUNDO LED")
             pdf.setFont("Helvetica", 9)
             pdf.setFillColor(colors.HexColor("#374151"))
             pdf.drawString(left + 21 * mm, height - 22 * mm, "Relatorio de fechamento diario de caixa")
@@ -329,7 +329,7 @@ def _pdf_fechamento(payload: dict[str, Any], observacoes: str = "") -> bytes:
         return buffer.getvalue()
     except Exception:
         lines = [
-            "AUTO TECH - FECHAMENTO DIARIO DE CAIXA",
+            "MUNDO LED - FECHAMENTO DIARIO DE CAIXA",
             f"Data de referencia: {payload['data_referencia']}",
             "",
             "SECAO 1 - VENDAS DO DIA",
