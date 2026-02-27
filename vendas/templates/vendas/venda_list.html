@@ -6,12 +6,12 @@
 
 {% block content %}
 <div class="card">
-  <h2>Área de histórico de vendas</h2>
-  <form method="get" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:12px 0;">
+  <h2 style="margin-top:0;">Filtro de vendas</h2>
+  <form method="get" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px;">
     <input type="text" name="cliente" placeholder="Cliente" value="{{ request.GET.cliente }}">
-    <input type="text" name="vendedor" placeholder="Vendedor (usuario)" value="{{ request.GET.vendedor }}">
+    <input type="text" name="vendedor" placeholder="Vendedor (usuário)" value="{{ request.GET.vendedor }}">
     <select name="tipo_documento">
-      <option value="">Venda e Orcamento</option>
+      <option value="">Venda e orçamento</option>
       {% for value, label in tipo_documento_choices %}
         <option value="{{ value }}" {% if request.GET.tipo_documento == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
@@ -31,91 +31,86 @@
     <input type="date" name="data_inicio" value="{{ request.GET.data_inicio }}">
     <input type="date" name="data_fim" value="{{ request.GET.data_fim }}">
     <button class="btn" type="submit">Filtrar</button>
-    <a class="btn" href="{% url 'vendas:venda_historico' %}">Limpar</a>
-    <a class="btn" href="{% url 'vendas:venda_create' %}">Nova venda</a>
+    <a class="btn btn-secondary" href="{% url 'vendas:venda_historico' %}">Limpar</a>
+    <a class="btn" href="{% url 'vendas:venda_create' %}">+ Nova venda</a>
   </form>
-  <div class="grid" style="margin-top:0;margin-bottom:10px;">
-    <div class="tile"><strong>Vendas no filtro</strong><br>{{ resumo_filtrado.total_vendas }}</div>
-    <div class="tile"><strong>Total no filtro</strong><br>{{ resumo_filtrado.total_final|br_currency }}</div>
-    <div class="tile"><strong>Descontos no filtro</strong><br>{{ resumo_filtrado.total_descontos|br_currency }}</div>
+
+  <div class="sales-kpis">
+    <div class="sales-kpi"><div class="muted">Vendas no filtro</div><div class="value">{{ resumo_filtrado.total_vendas }}</div></div>
+    <div class="sales-kpi"><div class="muted">Total no filtro</div><div class="value">{{ resumo_filtrado.total_final|br_currency }}</div></div>
+    <div class="sales-kpi"><div class="muted">Descontos no filtro</div><div class="value">{{ resumo_filtrado.total_descontos|br_currency }}</div></div>
   </div>
 
-  <table style="width:100%;border-collapse:collapse;">
-    <thead>
-      <tr>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Código</th>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Data</th>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Tipo</th>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Unidade</th>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Cliente</th>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Vendedor</th>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Itens</th>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Status</th>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for venda in vendas %}
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead>
         <tr>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;"><a href="{% url 'vendas:venda_detail' venda.pk %}">{{ venda.codigo_identificacao }}</a></td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.data_venda|date:"d/m/Y" }}</td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.get_tipo_documento_display }}</td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.unidade_saida|unit_label }}</td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.cliente.nome }}</td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{% if venda.vendedor %}{{ venda.vendedor.username }}{% else %}-{% endif %}</td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;min-width:320px;">
-            <table style="width:100%;border-collapse:collapse;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;padding:6px;border-bottom:1px solid #e5e7eb;">Produto</th>
-                  <th style="text-align:right;padding:6px;border-bottom:1px solid #e5e7eb;">Qtd</th>
-                  <th style="text-align:right;padding:6px;border-bottom:1px solid #e5e7eb;">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for item in venda.itens.all|slice:":4" %}
-                  <tr>
-                    <td style="padding:6px;border-bottom:1px solid #eef2f7;">{{ item.produto.nome }}</td>
-                    <td style="padding:6px;text-align:right;border-bottom:1px solid #eef2f7;">{{ item.quantidade|br_number:0 }}</td>
-                    <td style="padding:6px;text-align:right;border-bottom:1px solid #eef2f7;">{{ item.subtotal|br_currency }}</td>
-                  </tr>
-                {% empty %}
-                  <tr><td colspan="3" style="padding:6px;">Sem itens</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-            {% if venda.itens.count > 4 %}
-              <div class="muted" style="margin-top:4px;">+ {{ venda.itens.count|add:"-4" }} item(ns)</div>
-            {% endif %}
-          </td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.get_status_display }}</td>
-          <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ venda.total_final|br_currency }}</td>
+          <th>Código</th>
+          <th>Data</th>
+          <th>Tipo</th>
+          <th>Cliente</th>
+          <th>Vendedor</th>
+          <th>Itens</th>
+          <th>Status</th>
+          <th>Total</th>
+          <th>Ações</th>
         </tr>
-      {% empty %}
-        <tr><td colspan="9" style="padding:10px;">Nenhuma venda encontrada para os filtros aplicados.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {% for venda in vendas %}
+          <tr>
+            <td><a href="{% url 'vendas:venda_detail' venda.pk %}"><strong>{{ venda.codigo_identificacao }}</strong></a><br><span class="muted">{{ venda.unidade_saida|unit_label }}</span></td>
+            <td>{{ venda.data_venda|date:"d/m/Y" }}</td>
+            <td>{{ venda.get_tipo_documento_display }}</td>
+            <td>{{ venda.cliente.nome }}</td>
+            <td>{% if venda.vendedor %}{{ venda.vendedor.username }}{% else %}-{% endif %}</td>
+            <td>
+              <span class="muted">{{ venda.itens.count }} item(ns)</span>
+              <ul class="items-mini">
+                {% for item in venda.itens.all|slice:":2" %}
+                  <li>{{ item.produto.nome }} ({{ item.quantidade|br_number:0 }})</li>
+                {% endfor %}
+              </ul>
+            </td>
+            <td>
+              <span class="status-pill {% if venda.status == 'RASCUNHO' %}status-rascunho{% elif venda.status == 'CONFIRMADA' %}status-confirmada{% elif venda.status == 'FATURADA' %}status-faturada{% elif venda.status == 'FINALIZADA' %}status-finalizada{% elif venda.status == 'CANCELADA' %}status-cancelada{% endif %}">
+                {{ venda.get_status_display }}
+              </span>
+            </td>
+            <td><strong>{{ venda.total_final|br_currency }}</strong><br><span class="muted">{{ venda.tipo_pagamento|payment_label }}</span></td>
+            <td class="actions-col">
+              <a class="btn btn-sm" href="{% url 'vendas:venda_detail' venda.pk %}">Abrir</a>
+              {% if venda.status == "RASCUNHO" or venda.status == "CONFIRMADA" %}
+                <a class="btn btn-sm btn-secondary" href="{% url 'vendas:venda_update' venda.pk %}">Editar</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="9">Nenhuma venda encontrada para os filtros aplicados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
   {% if is_paginated %}
-    <div style="margin-top:12px;">
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       {% if page_obj.has_previous %}
-        <a class="btn" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>
+        <a class="btn btn-secondary" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>
       {% endif %}
-      <span style="margin:0 8px;">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+      <span>Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
       {% if page_obj.has_next %}
-        <a class="btn" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Próxima</a>
+        <a class="btn btn-secondary" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Próxima</a>
       {% endif %}
     </div>
   {% endif %}
 </div>
 
 <div class="card" style="margin-top:12px;">
-  <h2>Dashboard rápido</h2>
-  <div class="grid">
-    <div class="tile"><strong>Total faturado</strong><br>{{ dashboard.total_faturado|br_currency }}</div>
-    <div class="tile"><strong>Vendas faturadas</strong><br>{{ dashboard.total_vendas_faturadas }}</div>
-    <div class="tile"><strong>Ticket médio</strong><br>{{ dashboard.ticket_medio|br_currency }}</div>
+  <h2 style="margin-top:0;">Resumo rápido</h2>
+  <div class="sales-kpis" style="margin-top:8px; margin-bottom:0;">
+    <div class="sales-kpi"><div class="muted">Total faturado</div><div class="value">{{ dashboard.total_faturado|br_currency }}</div></div>
+    <div class="sales-kpi"><div class="muted">Vendas faturadas</div><div class="value">{{ dashboard.total_vendas_faturadas }}</div></div>
+    <div class="sales-kpi"><div class="muted">Ticket médio</div><div class="value">{{ dashboard.ticket_medio|br_currency }}</div></div>
   </div>
 </div>
 {% endblock %}

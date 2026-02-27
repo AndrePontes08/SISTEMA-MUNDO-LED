@@ -4,79 +4,72 @@
 {% block page_title %}Estoque{% endblock %}
 
 {% block content %}
-<style>
-  .card { background:#fff; border-radius:12px; padding:16px; box-shadow: 0 1px 10px rgba(0,0,0,.06); margin-bottom:12px; }
-  table { width:100%; border-collapse: collapse; margin-top:10px; }
-  th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; }
-  .muted { color:#6b7280; font-size:13px; }
-  .actions { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
-  .btn { display:inline-block; padding:8px 12px; border-radius:10px; background:#111827; color:#fff; text-decoration:none; }
-</style>
-
-<div class="actions">
-  <a class="btn" href="{% url 'estoque:movimento_create' %}">Novo movimento</a>
-  <a class="btn" href="{% url 'estoque:estoque_completo' %}">Estoque completo por unidade</a>
-  <a class="btn" href="{% url 'estoque:recebimento_list' %}">Recebimento de mercadorias</a>
-  <a class="btn" href="{% url 'estoque:contagem_rapida' %}">Contagem rapida por unidade</a>
-  <a class="btn" href="{% url 'estoque:saida_operacional' %}">Saidas de troca/garantia</a>
-  <a class="btn" href="{% url 'estoque:transferencia_create' %}">Transferir entre unidades</a>
-  <a class="btn" href="{% url 'estoque:movimento_list' %}">Historico de movimentos</a>
-  <a class="btn" href="{% url 'estoque:indicadores' %}">Indicadores</a>
+<div class="card">
+  <h2 style="margin-top:0;">Atalhos do estoque</h2>
+  <div class="grid" style="margin-top:10px;">
+    <a class="btn" href="{% url 'estoque:movimento_create' %}">Novo movimento</a>
+    <a class="btn" href="{% url 'estoque:estoque_completo' %}">Estoque completo por unidade</a>
+    <a class="btn" href="{% url 'estoque:recebimento_list' %}">Recebimento de mercadorias</a>
+    <a class="btn" href="{% url 'estoque:contagem_rapida' %}">Contagem rápida por unidade</a>
+    <a class="btn" href="{% url 'estoque:saida_operacional' %}">Saídas de troca/garantia</a>
+    <a class="btn" href="{% url 'estoque:transferencia_create' %}">Transferir entre unidades</a>
+    <a class="btn" href="{% url 'estoque:movimento_list' %}">Histórico de movimentos</a>
+    <a class="btn" href="{% url 'estoque:indicadores' %}">Indicadores</a>
+  </div>
 </div>
 
-<div class="card">
-  <h2>Pendencias de recebimento</h2>
-  <p class="muted">Compras aprovadas que precisam ser conferidas e recebidas pelo estoque.</p>
-  <table>
-    <thead>
-      <tr><th>Compra</th><th>Data</th><th>Fornecedor</th><th>Itens</th><th>Acao</th></tr>
-    </thead>
-    <tbody>
-    {% for compra in compras_pendentes_recebimento %}
-      <tr>
-        <td>#{{ compra.id }}</td>
-        <td>{{ compra.data_compra|date:"d/m/Y" }}</td>
-        <td>{{ compra.fornecedor.nome }}</td>
-        <td>{{ compra.itens.count }}</td>
-        <td><a class="btn" href="{% url 'estoque:recebimento_detail' compra.id %}">Conferir</a></td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="5" class="muted">Sem pendencias de recebimento.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+<div class="card" style="margin-top:12px;">
+  <h2 style="margin-top:0;">Pendências de recebimento</h2>
+  <p class="muted">Compras aprovadas que precisam ser conferidas e recebidas.</p>
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr><th>Compra</th><th>Data</th><th>Fornecedor</th><th>Itens</th><th>Ação</th></tr></thead>
+      <tbody>
+      {% for compra in compras_pendentes_recebimento %}
+        <tr>
+          <td>#{{ compra.id }}</td>
+          <td>{{ compra.data_compra|date:"d/m/Y" }}</td>
+          <td>{{ compra.fornecedor.nome }}</td>
+          <td>{{ compra.itens.count }}</td>
+          <td><a class="btn btn-sm" href="{% url 'estoque:recebimento_detail' compra.id %}">Conferir</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="muted">Sem pendências de recebimento.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<div class="card">
-  <h2>Alertas de estoque baixo</h2>
-  <p class="muted">Quando saldo <= minimo configurado, um alerta e criado automaticamente.</p>
-  <table>
-    <thead>
-      <tr><th>Produto</th><th>Saldo</th><th>Minimo</th></tr>
-    </thead>
-    <tbody>
-    {% for a in alertas_abertos %}
-      <tr><td>{{ a.produto.nome }}</td><td>{{ a.saldo_no_momento }}</td><td>{{ a.minimo_configurado }}</td></tr>
-    {% empty %}
-      <tr><td colspan="3" class="muted">Nenhum alerta aberto.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+<div class="card" style="margin-top:12px;">
+  <h2 style="margin-top:0;">Alertas de estoque baixo</h2>
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr><th>Produto</th><th>Saldo</th><th>Mínimo</th></tr></thead>
+      <tbody>
+      {% for a in alertas_abertos %}
+        <tr><td>{{ a.produto.nome }}</td><td>{{ a.saldo_no_momento }}</td><td>{{ a.minimo_configurado }}</td></tr>
+      {% empty %}
+        <tr><td colspan="3" class="muted">Nenhum alerta aberto.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<div class="card">
-  <h3>Sugestao de compra (produtos abaixo do minimo)</h3>
-  <table>
-    <thead>
-      <tr><th>Produto</th><th>Saldo</th><th>Minimo</th><th>Ideal</th></tr>
-    </thead>
-    <tbody>
-    {% for cfg in produtos_baixos %}
-      <tr><td>{{ cfg.produto.nome }}</td><td>{{ cfg.saldo_atual }}</td><td>{{ cfg.estoque_minimo }}</td><td>{{ cfg.estoque_ideal }}</td></tr>
-    {% empty %}
-      <tr><td colspan="4" class="muted">Tudo ok por enquanto.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+<div class="card" style="margin-top:12px;">
+  <h2 style="margin-top:0;">Sugestão de compra</h2>
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr><th>Produto</th><th>Saldo</th><th>Mínimo</th><th>Ideal</th></tr></thead>
+      <tbody>
+      {% for cfg in produtos_baixos %}
+        <tr><td>{{ cfg.produto.nome }}</td><td>{{ cfg.saldo_atual }}</td><td>{{ cfg.estoque_minimo }}</td><td>{{ cfg.estoque_ideal }}</td></tr>
+      {% empty %}
+        <tr><td colspan="4" class="muted">Tudo OK por enquanto.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

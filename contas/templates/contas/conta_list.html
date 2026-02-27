@@ -1,386 +1,91 @@
 {% extends "base.html" %}
-{% load static %}
 {% load formatters %}
 
 {% block title %}Contas{% endblock %}
+{% block page_title %}Contas a Pagar{% endblock %}
 
 {% block content %}
-<style>
-    :root {
-        --primary: #667eea;
-        --success: #56ab2f;
-        --info: #06a3e6;
-        --warning: #ffa500;
-        --danger: #ff6b6b;
-        --light-bg: #f8f9fa;
-    }
-
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 24px;
-        padding-bottom: 12px;
-        border-bottom: 2px solid #e9ecef;
-    }
-
-    .page-title {
-        font-size: 24px;
-        font-weight: 700;
-        color: #212529;
-        margin: 0;
-    }
-
-    .nav-links {
-        display: flex;
-        gap: 8px;
-    }
-
-    .nav-link {
-        background: var(--primary);
-        color: white;
-        text-decoration: none;
-        border-radius: 6px;
-        padding: 8px 14px;
-        font-size: 13px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-
-    .nav-link:hover {
-        background: #5568d3;
-        box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
-    }
-
-    /* Filtros */
-    .filter-form {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 10px;
-        align-items: flex-end;
-    }
-
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .form-label {
-        font-size: 12px;
-        font-weight: 600;
-        color: #495057;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .form-control, .form-select {
-        border: 1px solid #dee2e6;
-        border-radius: 6px;
-        padding: 8px 10px;
-        font-size: 13px;
-        height: 36px;
-    }
-
-    .form-control:focus, .form-select:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        outline: none;
-    }
-
-    .btn-filter {
-        background: var(--primary);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 8px 16px;
-        font-weight: 600;
-        font-size: 13px;
-        height: 36px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-
-    .btn-filter:hover {
-        background: #5568d3;
-        box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
-    }
-
-    .card {
-        background: white;
-        border-radius: 8px;
-        border: 1px solid #e9ecef;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-        overflow: hidden;
-        margin-bottom: 24px;
-    }
-
-    .card-header {
-        background: #f8f9fa;
-        padding: 14px 16px;
-        border-bottom: 1px solid #e9ecef;
-        font-weight: 600;
-        font-size: 14px;
-        color: #212529;
-    }
-
-    .card-body {
-        padding: 16px;
-    }
-
-    /* Tabela */
-    .table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-        margin-bottom: 0;
-    }
-
-    .table thead {
-        background: #f8f9fa;
-        border-bottom: 2px solid #dee2e6;
-    }
-
-    .table th {
-        padding: 12px 14px;
-        text-align: left;
-        font-weight: 600;
-        color: #495057;
-        text-transform: uppercase;
-        font-size: 11px;
-        letter-spacing: 0.5px;
-    }
-
-    .table tbody tr {
-        border-bottom: 1px solid #e9ecef;
-        transition: background 0.2s ease;
-    }
-
-    .table tbody tr:hover {
-        background: #f8f9fa;
-    }
-
-    .table td {
-        padding: 12px 14px;
-        vertical-align: middle;
-    }
-
-    .badge {
-        display: inline-block;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: 600;
-    }
-
-    .badge-success { background: #e8f5e9; color: var(--success); }
-    .badge-info { background: #e0f7fa; color: var(--info); }
-    .badge-secondary { background: #e9ecef; color: #495057; }
-
-    .badge-imported {
-        background: #f3e5f5;
-        color: #6a1b9a;
-        font-size: 10px;
-    }
-
-    .btn-link {
-        color: var(--primary);
-        text-decoration: none;
-        font-weight: 600;
-        font-size: 11px;
-        padding: 4px 8px;
-        transition: all 0.2s ease;
-    }
-
-    .btn-link:hover {
-        color: white;
-        background: var(--primary);
-        border-radius: 4px;
-    }
-
-    /* Paginação */
-    .pagination-wrapper {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 16px;
-        padding: 12px 16px;
-        background: #f8f9fa;
-        border-radius: 6px;
-        font-size: 12px;
-    }
-
-    .pagination {
-        display: flex;
-        gap: 4px;
-        align-items: center;
-        margin: 0;
-        list-style: none;
-    }
-
-    .page-link {
-        padding: 6px 8px;
-        border-radius: 4px;
-        background: white;
-        border: 1px solid #dee2e6;
-        color: var(--primary);
-        cursor: pointer;
-        font-weight: 600;
-        font-size: 11px;
-        transition: all 0.2s ease;
-        text-decoration: none;
-    }
-
-    .page-link:hover {
-        background: var(--primary);
-        color: white;
-    }
-
-    .page-link.active {
-        background: var(--primary);
-        color: white;
-        border-color: var(--primary);
-    }
-
-    .container-fluid {
-        padding: 20px;
-        background: var(--light-bg);
-        min-height: 100vh;
-    }
-
-    .no-data {
-        text-align: center;
-        padding: 40px;
-        color: #6c757d;
-    }
-</style>
-
-<div class="container-fluid">
-    <!-- Cabeçalho -->
-    <div class="page-header">
-        <h1 class="page-title">💰 Contas a Pagar</h1>
-        <div class="nav-links">
-            <a href="{% url 'contas:conta_create' %}" class="nav-link">+ Nova Conta</a>
-            <a href="{% url 'contas:import_csv' %}" class="nav-link">⬆️ Importar</a>
-            <a href="{% url 'contas:dashboard' %}" class="nav-link">📊 Dashboard</a>
-        </div>
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+    <h2 style="margin:0;">Lista de contas</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a href="{% url 'contas:conta_create' %}" class="btn">+ Nova Conta</a>
+      <a href="{% url 'contas:import_csv' %}" class="btn">Importar CSV</a>
+      <a href="{% url 'contas:dashboard' %}" class="btn btn-secondary">Dashboard</a>
     </div>
+  </div>
 
-    <!-- Filtros -->
-    <div class="card">
-        <div class="card-body">
-            <form method="get" class="filter-form">
-                <div class="form-group">
-                    <label class="form-label">🔍 Descrição</label>
-                    <input type="text" name="q" class="form-control" placeholder="Buscar..." value="{{ request.GET.q }}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Status</label>
-                    <select name="status" class="form-select">
-                        <option value="">Todos</option>
-                        <option value="ABERTA" {% if request.GET.status == 'ABERTA' %}selected{% endif %}>Aberta</option>
-                        <option value="PAGA" {% if request.GET.status == 'PAGA' %}selected{% endif %}>Paga</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Centro</label>
-                    <input type="text" name="centro_custo" class="form-control" placeholder="FM/ML..." value="{{ request.GET.centro_custo }}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Mês</label>
-                    <input type="text" name="mes" class="form-control" placeholder="YYYY-MM" value="{{ request.GET.mes }}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" style="visibility: hidden;">Ação</label>
-                    <button type="submit" class="btn-filter">🔎 Filtrar</button>
-                </div>
-            </form>
-        </div>
+  <form method="get" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end;margin-top:12px;">
+    <div><label>Descrição</label><input type="text" name="q" placeholder="Buscar..." value="{{ request.GET.q }}"></div>
+    <div>
+      <label>Status</label>
+      <select name="status">
+        <option value="">Todos</option>
+        <option value="ABERTA" {% if request.GET.status == 'ABERTA' %}selected{% endif %}>Aberta</option>
+        <option value="PAGA" {% if request.GET.status == 'PAGA' %}selected{% endif %}>Paga</option>
+      </select>
     </div>
+    <div><label>Centro</label><input type="text" name="centro_custo" placeholder="FM/ML..." value="{{ request.GET.centro_custo }}"></div>
+    <div><label>Mês</label><input type="text" name="mes" placeholder="YYYY-MM" value="{{ request.GET.mes }}"></div>
+    <div><button type="submit" class="btn">Filtrar</button></div>
+  </form>
 
-    <!-- Tabela de Contas -->
-    <div class="card">
-        <div class="card-header">Contas Recentes</div>
-        <div style="overflow-x: auto;">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Vencimento</th>
-                        <th>Descrição</th>
-                        <th>Centro</th>
-                        <th style="text-align: right;">Valor</th>
-                        <th>Status</th>
-                        <th style="text-align: center;">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in contas %}
-                        <tr>
-                            <td>{{ c.vencimento|date:"d/m/Y" }}</td>
-                            <td>{{ c.descricao }}</td>
-                            <td>{{ c.centro_custo }}</td>
-                            <td style="text-align: right;"><strong>{{ c.valor|br_currency }}</strong></td>
-                            <td>
-                                <span class="badge {% if c.status == 'PAGA' %}badge-success{% else %}badge-info{% endif %}">{{ c.get_status_display }}</span>
-                                {% if c.importado %}<span class="badge badge-imported">importado</span>{% endif %}
-                            </td>
-                            <td style="text-align: center;">
-                                <a href="{% url 'contas:conta_detail' c.id %}" class="btn-link">Abrir →</a>
-                            </td>
-                        </tr>
-                    {% empty %}
-                        <tr>
-                            <td colspan="6">
-                                <div class="no-data">
-                                    <div style="font-size: 48px; margin-bottom: 12px;">📭</div>
-                                    <div>Nenhuma conta encontrada</div>
-                                </div>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+  <div class="table-responsive" style="margin-top:12px;">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>Vencimento</th>
+          <th>Descrição</th>
+          <th>Centro</th>
+          <th>Valor</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in contas %}
+          <tr>
+            <td>{{ c.vencimento|date:"d/m/Y" }}</td>
+            <td>{{ c.descricao }}</td>
+            <td>{{ c.centro_custo }}</td>
+            <td><strong>{{ c.valor|br_currency }}</strong></td>
+            <td>{{ c.get_status_display }}{% if c.importado %} <span class="muted">(importado)</span>{% endif %}</td>
+            <td><a href="{% url 'contas:conta_detail' c.id %}">Abrir</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="muted">Nenhuma conta encontrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if is_paginated %}
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      {% if page_obj.has_previous %}
+        <a class="btn btn-secondary" href="?page=1{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">Primeira</a>
+        <a class="btn btn-secondary" href="?page={{ page_obj.previous_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">Anterior</a>
+      {% endif %}
+
+      <span><strong>{{ page_obj.paginator.count }}</strong> contas | Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+
+      <form method="get" style="display:flex;gap:4px;align-items:center;">
+        <label>Itens</label>
+        <select name="page_size" onchange="this.form.submit()" style="width:auto;">
+          <option value="20" {% if request.GET.page_size == '20' or not request.GET.page_size %}selected{% endif %}>20</option>
+          <option value="50" {% if request.GET.page_size == '50' %}selected{% endif %}>50</option>
+          <option value="100" {% if request.GET.page_size == '100' %}selected{% endif %}>100</option>
+        </select>
+        {% if request.GET.q %}<input type="hidden" name="q" value="{{ request.GET.q }}">{% endif %}
+        {% if request.GET.status %}<input type="hidden" name="status" value="{{ request.GET.status }}">{% endif %}
+        {% if request.GET.centro_custo %}<input type="hidden" name="centro_custo" value="{{ request.GET.centro_custo }}">{% endif %}
+        {% if request.GET.mes %}<input type="hidden" name="mes" value="{{ request.GET.mes }}">{% endif %}
+      </form>
+
+      {% if page_obj.has_next %}
+        <a class="btn btn-secondary" href="?page={{ page_obj.next_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">Próxima</a>
+        <a class="btn btn-secondary" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">Última</a>
+      {% endif %}
     </div>
-
-    <!-- Paginação -->
-    {% if is_paginated %}
-        <div class="pagination-wrapper">
-            <div>
-                <strong>{{ page_obj.paginator.count }}</strong> contas | 
-                Página <strong>{{ page_obj.number }}</strong> de <strong>{{ page_obj.paginator.num_pages }}</strong>
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <label style="font-size: 12px; font-weight: 600;">Itens:</label>
-                <form method="get" style="display: flex; gap: 4px;">
-                    <select name="page_size" class="form-select" style="width: auto; height: 30px; font-size: 12px;" onchange="this.form.submit()">
-                        <option value="20" {% if request.GET.page_size == '20' or not request.GET.page_size %}selected{% endif %}>20</option>
-                        <option value="50" {% if request.GET.page_size == '50' %}selected{% endif %}>50</option>
-                        <option value="100" {% if request.GET.page_size == '100' %}selected{% endif %}>100</option>
-                    </select>
-                    {% if request.GET.q %}<input type="hidden" name="q" value="{{ request.GET.q }}">{% endif %}
-                    {% if request.GET.status %}<input type="hidden" name="status" value="{{ request.GET.status }}">{% endif %}
-                    {% if request.GET.centro_custo %}<input type="hidden" name="centro_custo" value="{{ request.GET.centro_custo }}">{% endif %}
-                    {% if request.GET.mes %}<input type="hidden" name="mes" value="{{ request.GET.mes }}">{% endif %}
-                </form>
-            </div>
-            <nav>
-                <ul class="pagination">
-                    {% if page_obj.has_previous %}
-                        <li><a class="page-link" href="?page=1{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">⏮</a></li>
-                        <li><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">◀</a></li>
-                    {% endif %}
-
-                    <li><span class="page-link active">{{ page_obj.number }}</span></li>
-
-                    {% if page_obj.has_next %}
-                        <li><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">▶</a></li>
-                        <li><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.page_size %}&page_size={{ request.GET.page_size }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">⏭</a></li>
-                    {% endif %}
-                </ul>
-            </nav>
-        </div>
-    {% endif %}
+  {% endif %}
 </div>
-
 {% endblock %}

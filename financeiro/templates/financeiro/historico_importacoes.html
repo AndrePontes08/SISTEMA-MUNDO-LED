@@ -1,78 +1,58 @@
 {% extends "base.html" %}
-{% block title %}Historico de Importacoes{% endblock %}
-{% block page_title %}Historico de Importacoes{% endblock %}
+{% block title %}Histórico de Importações{% endblock %}
+{% block page_title %}Histórico de Importações{% endblock %}
 {% block content %}
-<style>
-  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06);margin-bottom:12px}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
-  .btn{display:inline-block;padding:8px 12px;border-radius:10px;background:#0f172a;color:#fff;text-decoration:none}
-  table{width:100%;border-collapse:collapse;margin-top:10px}
-  th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}
-  .chip{padding:3px 8px;border-radius:999px;font-size:12px;font-weight:700}
-  .SUCESSO{background:#dcfce7;color:#166534}.PARCIAL{background:#fef3c7;color:#92400e}.ERRO{background:#fee2e2;color:#991b1b}.PREVIEW{background:#e5e7eb;color:#374151}
-</style>
-
 <div class="card">
   <form method="get">
-    <div class="row">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end;">
       <div>{{ filtro_form.conta.label_tag }} {{ filtro_form.conta }}</div>
       <div>{{ filtro_form.banco.label_tag }} {{ filtro_form.banco }}</div>
       <div>{{ filtro_form.status.label_tag }} {{ filtro_form.status }}</div>
       <div>{{ filtro_form.data_inicio.label_tag }} {{ filtro_form.data_inicio }}</div>
       <div>{{ filtro_form.data_fim.label_tag }} {{ filtro_form.data_fim }}</div>
       <div><button class="btn" type="submit">Filtrar</button></div>
-      <div><a class="btn" href="{% url 'financeiro:importar_ofx' %}">Novo OFX</a></div>
+      <div><a class="btn btn-secondary" href="{% url 'financeiro:importar_ofx' %}">Novo OFX</a></div>
     </div>
   </form>
 </div>
 
 {% if alertas_conta %}
-<div class="card">
-  <h3>Alertas</h3>
-  <ul>
-    {% for alerta in alertas_conta %}
-      <li>{{ alerta }}</li>
-    {% endfor %}
-  </ul>
+<div class="card" style="margin-top:12px;">
+  <h3 style="margin-top:0;">Alertas</h3>
+  <ul>{% for alerta in alertas_conta %}<li>{{ alerta }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
 
-<div class="card">
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Conta/Banco</th>
-        <th>Periodo detectado</th>
-        <th>Resumo</th>
-        <th>Status</th>
-        <th>Quando</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in importacoes %}
-      <tr>
-        <td>#{{ item.id }}</td>
-        <td>
-          {{ item.conta|default:"-" }}<br>
-          <small>{{ item.banco_nome|default:item.banco_codigo|default:"-" }}</small>
-        </td>
-        <td>{{ item.periodo_inicio|default:"-" }} ate {{ item.periodo_fim|default:"-" }}</td>
-        <td>
-          Detectadas: {{ item.transacoes_detectadas }}<br>
-          Novas: {{ item.transacoes_importadas }}<br>
-          Duplicadas: {{ item.transacoes_duplicadas }}
-        </td>
-        <td><span class="chip {{ item.status }}">{{ item.status }}</span></td>
-        <td>{{ item.criado_em|date:"d/m/Y H:i" }}</td>
-        <td><a href="{% url 'financeiro:importacao_detail' item.id %}">Detalhes</a></td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="7">Sem importacoes registradas.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="card" style="margin-top:12px;">
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Conta/Banco</th>
+          <th>Período detectado</th>
+          <th>Resumo</th>
+          <th>Status</th>
+          <th>Quando</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in importacoes %}
+        <tr>
+          <td>#{{ item.id }}</td>
+          <td>{{ item.conta|default:"-" }}<br><small>{{ item.banco_nome|default:item.banco_codigo|default:"-" }}</small></td>
+          <td>{{ item.periodo_inicio|default:"-" }} até {{ item.periodo_fim|default:"-" }}</td>
+          <td>Detectadas: {{ item.transacoes_detectadas }}<br>Novas: {{ item.transacoes_importadas }}<br>Duplicadas: {{ item.transacoes_duplicadas }}</td>
+          <td><strong>{{ item.status }}</strong></td>
+          <td>{{ item.criado_em|date:"d/m/Y H:i" }}</td>
+          <td><a href="{% url 'financeiro:importacao_detail' item.id %}">Detalhes</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7">Sem importações registradas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}
-

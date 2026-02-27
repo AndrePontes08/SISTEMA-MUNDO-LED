@@ -2,83 +2,62 @@
 {% block title %}Contas - Dashboard{% endblock %}
 {% block page_title %}Contas a Pagar{% endblock %}
 {% block content %}
-<style>
-  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06);margin-bottom:12px}
-  .btn{display:inline-block;padding:8px 12px;border-radius:10px;background:#111827;color:#fff;text-decoration:none}
-  .muted{color:#6b7280;font-size:13px}
-  table{width:100%;border-collapse:collapse;margin-top:10px}
-  th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left}
-  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
-  .kpi{background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 10px rgba(0,0,0,.06)}
-  .kpi .label{font-size:12px;text-transform:uppercase;color:#6b7280}
-  .kpi .value{font-size:24px;font-weight:700;margin-top:4px}
-  @media (max-width: 1000px){.kpis{grid-template-columns:1fr;}}
-</style>
-
-<div class="kpis">
-  <div class="kpi">
-    <div class="label">Contas para pagar hoje</div>
-    <div class="value">R$ {{ total_dia }}</div>
-    <div class="muted">{{ contas_dia|length }} conta(s)</div>
-  </div>
-  <div class="kpi">
-    <div class="label">Total da semana (abertas)</div>
-    <div class="value">R$ {{ total_semana }}</div>
-    <div class="muted">{{ contas_semana|length }} conta(s)</div>
-  </div>
-  <div class="kpi">
-    <div class="label">Total do mes (abertas)</div>
-    <div class="value">R$ {{ total_mes_abertas }}</div>
-    <div class="muted">{{ contas_mes|length }} conta(s)</div>
-  </div>
+<div class="grid" style="margin-bottom:12px;">
+  <div class="tile"><div class="muted">Contas para pagar hoje</div><h2 style="margin:4px 0;">R$ {{ total_dia }}</h2><div class="muted">{{ contas_dia|length }} conta(s)</div></div>
+  <div class="tile"><div class="muted">Total da semana (abertas)</div><h2 style="margin:4px 0;">R$ {{ total_semana }}</h2><div class="muted">{{ contas_semana|length }} conta(s)</div></div>
+  <div class="tile"><div class="muted">Total do mês (abertas)</div><h2 style="margin:4px 0;">R$ {{ total_mes_abertas }}</h2><div class="muted">{{ contas_mes|length }} conta(s)</div></div>
 </div>
 
 <div class="card">
-  <h2>Prioridade do dia</h2>
+  <h2 style="margin-top:0;">Prioridade do dia</h2>
   <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
     <a class="btn" href="{% url 'contas:contas_periodo_pdf' 'dia' %}">Gerar PDF do dia</a>
     <a class="btn" href="{% url 'contas:contas_periodo_pdf' 'semana' %}">Gerar PDF da semana</a>
-    <a class="btn" href="{% url 'contas:contas_periodo_pdf' 'mes' %}">Gerar PDF do mes</a>
+    <a class="btn" href="{% url 'contas:contas_periodo_pdf' 'mes' %}">Gerar PDF do mês</a>
   </div>
 
-  <table>
-    <thead><tr><th>Venc.</th><th>Descricao</th><th>Centro</th><th>Valor</th><th></th></tr></thead>
-    <tbody>
-    {% for c in contas_dia %}
-      <tr>
-        <td>{{ c.vencimento|date:"d/m/Y" }}</td>
-        <td>{{ c.descricao }}</td>
-        <td>{{ c.centro_custo }}</td>
-        <td>R$ {{ c.valor }}</td>
-        <td><a href="{% url 'contas:conta_detail' c.id %}">Abrir</a></td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="5" class="muted">Sem contas abertas vencendo hoje.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-responsive" style="margin-top:10px;">
+    <table class="table table-hover">
+      <thead><tr><th>Venc.</th><th>Descrição</th><th>Centro</th><th>Valor</th><th></th></tr></thead>
+      <tbody>
+      {% for c in contas_dia %}
+        <tr>
+          <td>{{ c.vencimento|date:"d/m/Y" }}</td>
+          <td>{{ c.descricao }}</td>
+          <td>{{ c.centro_custo }}</td>
+          <td>R$ {{ c.valor }}</td>
+          <td><a href="{% url 'contas:conta_detail' c.id %}">Abrir</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="muted">Sem contas abertas vencendo hoje.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<div class="card">
-  <h2>Resumo do mes (geral)</h2>
-  <div class="muted">Abertas: {{ abertas_mes }} - Pagas: {{ pagas_mes }} - Total mes: R$ {{ total_mes }}</div>
-  <div style="margin-top:10px" class="muted">Imposto ({{ imposto.regra_nome }}): percentual {{ imposto.percentual }} - estimado: R$ {{ imposto.imposto_estimado }}</div>
+<div class="card" style="margin-top:12px;">
+  <h2 style="margin-top:0;">Resumo do mês (geral)</h2>
+  <p class="muted">Abertas: {{ abertas_mes }} | Pagas: {{ pagas_mes }} | Total mês: R$ {{ total_mes }}</p>
+  <p class="muted">Imposto ({{ imposto.regra_nome }}): percentual {{ imposto.percentual }} | estimado: R$ {{ imposto.imposto_estimado }}</p>
   <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
     <a class="btn" href="{% url 'contas:conta_create' %}">Nova conta</a>
     <a class="btn" href="{% url 'contas:import_csv' %}">Importar base (CSV)</a>
-    <a class="btn" href="{% url 'contas:conta_list' %}">Ver lista</a>
+    <a class="btn btn-secondary" href="{% url 'contas:conta_list' %}">Ver lista</a>
   </div>
 </div>
 
-<div class="card">
-  <h3>Ultimas contas</h3>
-  <table>
-    <thead><tr><th>Venc.</th><th>Descricao</th><th>Centro</th><th>Valor</th><th>Status</th><th></th></tr></thead>
-    <tbody>
-    {% for c in ultimas %}
-      <tr><td>{{ c.vencimento|date:"d/m/Y" }}</td><td>{{ c.descricao }}</td><td>{{ c.centro_custo }}</td><td>R$ {{ c.valor }}</td><td>{{ c.status }}</td><td><a href="{% url 'contas:conta_detail' c.id %}">Abrir</a></td></tr>
-    {% empty %}<tr><td colspan="6" class="muted">Sem registros.</td></tr>{% endfor %}
-    </tbody>
-  </table>
+<div class="card" style="margin-top:12px;">
+  <h3 style="margin-top:0;">Últimas contas</h3>
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr><th>Venc.</th><th>Descrição</th><th>Centro</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for c in ultimas %}
+        <tr><td>{{ c.vencimento|date:"d/m/Y" }}</td><td>{{ c.descricao }}</td><td>{{ c.centro_custo }}</td><td>R$ {{ c.valor }}</td><td>{{ c.status }}</td><td><a href="{% url 'contas:conta_detail' c.id %}">Abrir</a></td></tr>
+      {% empty %}<tr><td colspan="6" class="muted">Sem registros.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

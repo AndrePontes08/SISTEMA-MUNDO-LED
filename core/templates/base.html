@@ -1,188 +1,397 @@
-﻿{% load static formatters %}
+{% load static formatters %}
 <!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="{% static 'core/img/logo_mundo_led.png' %}">
+  <link rel="stylesheet" href="{% static 'core/css/app.css' %}">
   <title>{% block title %}MUNDO LED ERP{% endblock %}</title>
   <style>
     :root {
-      --sidebar-bg: #0b1220;
-      --sidebar-text: #e6edf7;
-      --sidebar-active: #1f6feb;
-      --page-bg: #eef2f7;
-      --card-bg: #ffffff;
-      --card-border: #d8e1ec;
-      --text-strong: #0f172a;
-      --text-muted: #4b5b71;
+      --brand-900: #082349;
+      --brand-800: #0f3a74;
+      --brand-700: #1155cc;
+      --brand-600: #1b66d8;
+      --brand-500: #2c7df0;
+      --brand-100: #dce9ff;
+      --ink-900: #11213d;
+      --ink-700: #2c3f60;
+      --ink-500: #5f708d;
+      --line: #dbe5f3;
+      --surface: #f4f8ff;
+      --paper: #ffffff;
+      --success: #15803d;
+      --warning: #b45309;
+      --danger: #b91c1c;
+      --info: #0c4a6e;
+      --radius: 14px;
+      --shadow-sm: 0 6px 18px rgba(17, 33, 61, 0.08);
+      --shadow-md: 0 16px 34px rgba(17, 33, 61, 0.14);
     }
-    html { font-size: 17px; }
+
     * { box-sizing: border-box; }
+    html { font-size: 16px; }
     body {
-      margin:0;
-      font-family: "Segoe UI", "Roboto", Tahoma, Geneva, Verdana, sans-serif;
-      font-size: 1rem;
-      font-weight: 500;
+      margin: 0;
+      font-family: "Segoe UI", "Roboto", "Ubuntu", sans-serif;
+      color: var(--ink-900);
+      background:
+        radial-gradient(circle at top right, #cfe0ff 0%, rgba(207, 224, 255, 0) 42%),
+        linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
       line-height: 1.45;
-      background: var(--page-bg);
-      color:var(--text-strong);
     }
-    h1, h2, h3, h4 { margin: 0 0 8px 0; line-height: 1.2; font-weight: 700; }
-    h1 { font-size: 1.8rem; }
-    h2 { font-size: 1.35rem; }
-    h3 { font-size: 1.15rem; }
-    p, li, td, th, label, span, a, input, select, textarea, button { font-size: 1rem; }
-    .layout { min-height: 100vh; }
+
+    h1, h2, h3, h4, h5 { margin: 0 0 8px; line-height: 1.2; }
+    p { margin: 0 0 10px; }
+    a { color: var(--brand-700); }
+
+    .layout {
+      min-height: 100vh;
+      display: flex;
+    }
+
     .sidebar {
+      width: 278px;
+      background: linear-gradient(180deg, var(--brand-900) 0%, #071a37 100%);
+      color: #edf3ff;
+      padding: 16px 14px 18px;
       position: fixed;
       top: 0;
       left: 0;
       bottom: 0;
-      width: 250px;
-      background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
-      color: var(--sidebar-text);
-      padding: 18px 14px;
       overflow-y: auto;
-      z-index: 10;
+      z-index: 30;
+      box-shadow: var(--shadow-md);
+      transition: transform .22s ease;
     }
+
     .brand {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 96px;
-      margin-bottom: 18px;
-      border-radius: 12px;
-      background: rgba(255,255,255,.04);
-      padding: 12px;
-      font-size: 26px;
-      font-weight: 700;
+      min-height: 94px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      background: linear-gradient(160deg, rgba(44, 125, 240, 0.34), rgba(16, 33, 70, 0.38));
+      display: grid;
+      place-items: center;
+      margin-bottom: 14px;
       letter-spacing: .08em;
+      font-weight: 800;
+      font-size: 1.2rem;
       text-align: center;
-      color: var(--sidebar-text);
+      padding: 10px;
     }
+
     .menu-group { margin-bottom: 14px; }
-    .menu-title { font-size: 11px; text-transform: uppercase; opacity: .65; margin: 10px 8px; letter-spacing: .06em; }
-    .menu-accordion {
-      margin-bottom: 8px;
-      border-radius: 10px;
-      background: rgba(255,255,255,.03);
-      overflow: hidden;
+    .menu-title {
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      opacity: .76;
+      margin: 10px 8px;
+      font-weight: 700;
     }
+
+    .menu-accordion {
+      border-radius: 11px;
+      background: rgba(255, 255, 255, 0.05);
+      margin-bottom: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
     .menu-accordion > summary {
       list-style: none;
       cursor: pointer;
       padding: 10px 12px;
-      color: var(--sidebar-text);
-      font-size: 0.96rem;
       font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      font-size: .94rem;
       user-select: none;
     }
+
     .menu-accordion > summary::-webkit-details-marker { display: none; }
-    .menu-accordion > summary:hover { background: rgba(255,255,255,.08); }
-    .menu-accordion[open] > summary { background: rgba(255,255,255,.1); }
-    .menu-children { padding: 6px 8px 8px 8px; }
+    .menu-accordion > summary:hover { background: rgba(255, 255, 255, 0.1); }
+    .menu-accordion[open] > summary { background: rgba(255, 255, 255, 0.12); }
+
+    .menu-children { padding: 5px 7px 7px; }
     .menu-link {
       display: block;
-      color: var(--sidebar-text);
+      color: #edf3ff;
       text-decoration: none;
-      padding: 10px 12px;
-      border-radius: 10px;
-      margin-bottom: 6px;
-      font-size: 0.96rem;
+      font-size: .93rem;
       font-weight: 600;
-      transition: background .2s ease;
+      border-radius: 9px;
+      padding: 9px 11px;
+      margin: 3px 0;
+      transition: background .16s ease;
     }
-    .menu-link:hover { background: rgba(255,255,255,.08); }
-    .menu-link.active { background: var(--sidebar-active); }
+
+    .menu-link:hover { background: rgba(255, 255, 255, 0.1); }
+    .menu-link.active {
+      background: linear-gradient(90deg, var(--brand-600), var(--brand-700));
+      color: #fff;
+      box-shadow: 0 8px 16px rgba(44, 125, 240, 0.34);
+    }
+
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 13, 28, 0.55);
+      z-index: 20;
+    }
+
     .content {
-      margin-left: 250px;
-      min-height: 100vh;
-      padding: 18px 22px;
+      flex: 1;
+      margin-left: 278px;
+      width: calc(100% - 278px);
+      padding: 16px 22px 24px;
     }
+
     .topbar {
-      background: var(--card-bg);
-      border-radius: 12px;
-      padding: 12px 16px;
-      border: 1px solid var(--card-border);
-      box-shadow: 0 6px 16px rgba(15, 23, 42, .06);
-      margin-bottom: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 12;
       display: flex;
       justify-content: space-between;
-      gap: 12px;
       align-items: center;
-    }
-    table { font-size: 0.96rem; width: 100%; border-collapse: collapse; }
-    table thead th {
-      background: #f8fafc;
-      color: #334155;
-      border-bottom: 1px solid #e2e8f0;
-      letter-spacing: .02em;
-    }
-    th, td { vertical-align: top; }
-    input, select, textarea {
-      width: 100%;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 12px;
       padding: 10px 12px;
-      min-height: 42px;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .menu-toggle {
+      display: none;
+      border: 1px solid var(--line);
       background: #fff;
-      color: #0f172a;
-      font-weight: 600;
-    }
-    textarea { min-height: 92px; }
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: #1d4ed8;
-      box-shadow: 0 0 0 3px rgba(29, 78, 216, .15);
-    }
-    .messages { margin-bottom: 10px; }
-    .msg { padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
-    .msg.success { background: #dcfce7; color:#166534; }
-    .msg.error { background: #fee2e2; color:#991b1b; }
-    .msg.info { background: #dbeafe; color:#1e3a8a; }
-    .msg.warning { background: #fef3c7; color:#92400e; }
-    .card {
-      background:#fff;
-      border-radius:14px;
-      padding:16px;
-      border: 1px solid var(--card-border);
-      box-shadow:0 8px 20px rgba(15, 23, 42, .05);
-    }
-    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:12px; }
-    .tile { background:#f3f4f6; border-radius:12px; padding:14px; }
-    .muted { color:var(--text-muted); font-size:0.94rem; font-weight: 600; }
-    .btn {
-      display:inline-block;
-      padding:10px 14px;
-      border-radius:10px;
-      border: none;
-      background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
-      color:#fff;
+      color: var(--ink-900);
+      border-radius: 10px;
       font-weight: 700;
-      text-decoration:none;
+      padding: 8px 10px;
       cursor: pointer;
     }
-    .btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
-    @media (max-width: 980px) {
-      .sidebar { position: static; width: 100%; height: auto; }
-      .content { margin-left: 0; }
+
+    .muted { color: var(--ink-500); font-weight: 500; }
+
+    .messages { margin-bottom: 12px; }
+    .msg {
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 7px;
+      border: 1px solid transparent;
+      font-size: .92rem;
+    }
+    .msg.success { background: #ecfdf3; color: #14532d; border-color: #bbf7d0; }
+    .msg.error { background: #fef2f2; color: #7f1d1d; border-color: #fecaca; }
+    .msg.info { background: #eff6ff; color: #1e3a8a; border-color: #bfdbfe; }
+    .msg.warning { background: #fffbeb; color: #78350f; border-color: #fde68a; }
+
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      padding: 16px;
+    }
+
+    .card-header {
+      margin: -16px -16px 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 700;
+      border-top-left-radius: var(--radius);
+      border-top-right-radius: var(--radius);
+      background: #f8fbff;
+    }
+
+    .card-body { padding: 0; }
+    .grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .tile { border: 1px solid var(--line); background: #f7faff; border-radius: 12px; padding: 12px; }
+
+    table,
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .95rem;
+    }
+
+    th, td,
+    .table th,
+    .table td {
+      border-bottom: 1px solid #e6edf8;
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    thead th,
+    .table thead th {
+      background: #f5f9ff;
+      color: var(--ink-700);
+      font-weight: 700;
+    }
+
+    .table-hover tbody tr:hover,
+    .table tbody tr:hover {
+      background: #f8fbff;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid #cfd9ea;
+      border-radius: 10px;
+      padding: 10px 11px;
+      min-height: 41px;
+      background: #fff;
+      color: var(--ink-900);
+      font: inherit;
+      font-weight: 500;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--brand-600);
+      box-shadow: 0 0 0 3px rgba(44, 125, 240, .16);
+    }
+
+    textarea { min-height: 90px; }
+
+    .btn,
+    button.btn,
+    .btn-link {
+      display: inline-block;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 9px 13px;
+      font-size: .92rem;
+      line-height: 1.2;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      background: linear-gradient(180deg, var(--brand-600), var(--brand-800));
+      color: #fff;
+      transition: transform .12s ease, filter .12s ease;
+    }
+
+    .btn:hover,
+    button.btn:hover,
+    .btn-link:hover { filter: brightness(1.05); transform: translateY(-1px); }
+
+    .btn-sm { padding: 6px 10px; font-size: .82rem; border-radius: 8px; }
+    .btn-secondary,
+    .btn-outline-secondary {
+      background: #fff;
+      color: var(--ink-700);
+      border-color: #cdd9eb;
+    }
+    .btn-outline-primary {
+      background: #fff;
+      color: var(--brand-700);
+      border-color: #b9d0fb;
+    }
+    .btn-primary { background: linear-gradient(180deg, var(--brand-600), var(--brand-800)); color: #fff; }
+    .btn-success { background: linear-gradient(180deg, #22c55e, #166534); color: #fff; }
+    .btn-warning { background: linear-gradient(180deg, #f59e0b, #b45309); color: #fff; }
+    .btn-danger { background: linear-gradient(180deg, #ef4444, #991b1b); color: #fff; }
+    .btn-info { background: linear-gradient(180deg, #38bdf8, #0c4a6e); color: #fff; }
+
+    .container,
+    .container-fluid { width: 100%; }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .col-12,
+    .col-md-4,
+    .col-md-6,
+    .col-md-8,
+    .col-lg-6,
+    .col-lg-8 {
+      width: 100%;
+      min-width: 0;
+    }
+
+    @media (min-width: 900px) {
+      .col-md-4 { width: calc(33.333% - 8px); }
+      .col-md-6 { width: calc(50% - 6px); }
+      .col-md-8 { width: calc(66.666% - 8px); }
+      .col-lg-6 { width: calc(50% - 6px); }
+      .col-lg-8 { width: calc(66.666% - 8px); }
+    }
+
+    .text-end { text-align: right; }
+    .text-center { text-align: center; }
+    .text-white { color: #fff; }
+    .text-dark { color: #111827; }
+    .text-muted { color: var(--ink-500); }
+    .small { font-size: .86rem; }
+
+    .bg-light { background: #f8fbff; }
+    .bg-success { background: #16a34a; }
+    .bg-danger { background: #dc2626; }
+    .bg-warning { background: #f59e0b; }
+    .bg-info { background: #0ea5e9; }
+
+    .w-100 { width: 100%; }
+    .h-100 { height: 100%; }
+
+    .mt-5 { margin-top: 2rem; }
+    .mb-2 { margin-bottom: .5rem; }
+    .mb-4 { margin-bottom: 1rem; }
+    .mb-5 { margin-bottom: 1.5rem; }
+    .py-5 { padding-top: 2rem; padding-bottom: 2rem; }
+
+    .shadow-sm { box-shadow: var(--shadow-sm); }
+    .border { border: 1px solid var(--line) !important; }
+    .border-0 { border: 0 !important; }
+
+    .table-responsive { width: 100%; overflow-x: auto; }
+    .fs-4 { font-size: 1.35rem; font-weight: 700; }
+    .hover-shadow:hover { box-shadow: var(--shadow-md); }
+
+    @media (max-width: 1100px) {
+      .menu-toggle { display: inline-block; }
+      .sidebar { transform: translateX(-105%); }
+      body.sidebar-open .sidebar { transform: translateX(0); }
+      body.sidebar-open .sidebar-overlay { display: block; }
+      .content {
+        margin-left: 0;
+        width: 100%;
+        padding: 12px 12px 18px;
+      }
+      .topbar { position: static; }
     }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
 <body>
 <div class="layout">
-  <aside class="sidebar">
-    <div class="brand">MUNDO LED</div>
+  <aside class="sidebar" id="sidebar-nav">
+    <div class="brand">MUNDO LED ERP</div>
+
     <div class="menu-group">
       <div class="menu-title">Geral</div>
       <a class="menu-link" href="/">Painel Inicial</a>
       <a class="menu-link" href="/relatorios/">Relatórios</a>
     </div>
+
     <div class="menu-group">
       <div class="menu-title">Operações</div>
       <details class="menu-accordion" data-accordion-key="compras">
@@ -193,6 +402,7 @@
           <a class="menu-link" href="/compras/novo/">Nova compra</a>
         </div>
       </details>
+
       <details class="menu-accordion" data-accordion-key="estoque">
         <summary>Estoque</summary>
         <div class="menu-children">
@@ -205,6 +415,7 @@
           <a class="menu-link" href="/estoque/transferencias/nova/">Transferências entre unidades</a>
         </div>
       </details>
+
       <details class="menu-accordion" data-accordion-key="vendas">
         <summary>Vendas</summary>
         <div class="menu-children">
@@ -214,6 +425,7 @@
           <a class="menu-link" href="/vendas/fechamentos/">Fechamento de caixa</a>
         </div>
       </details>
+
       <details class="menu-accordion" data-accordion-key="financeiro">
         <summary>Financeiro</summary>
         <div class="menu-children">
@@ -222,6 +434,7 @@
           <a class="menu-link" href="/boletos/">Boletos</a>
         </div>
       </details>
+
       <details class="menu-accordion" data-accordion-key="importadores">
         <summary>Importadores</summary>
         <div class="menu-children">
@@ -230,17 +443,23 @@
         </div>
       </details>
     </div>
+
     <div class="menu-group">
       <div class="menu-title">Sistema</div>
-      <a class="menu-link" href="/documentacao/">Documentacao</a>
+      <a class="menu-link" href="/documentacao/">Documentação</a>
       <a class="menu-link" href="/admin/">Admin</a>
       <a class="menu-link" href="/accounts/logout/">Sair</a>
     </div>
   </aside>
 
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
   <main class="content">
     <div class="topbar">
-      <strong>{% block page_title %}MUNDO LED ERP{% endblock %}</strong>
+      <div class="topbar-left">
+        <button class="menu-toggle" id="js-sidebar-toggle" type="button">Menu</button>
+        <strong>{% block page_title %}MUNDO LED ERP{% endblock %}</strong>
+      </div>
       <span class="muted">Usuário: {% if request.user.is_authenticated %}{{ request.user.username }}{% else %}-{% endif %}</span>
     </div>
 
@@ -254,8 +473,8 @@
 
     {% block content %}
     <div class="card">
-      <h2>PAINEL INICIAL</h2>
-      <div class="grid">
+      <h2>Painel inicial</h2>
+      <div class="grid" style="margin-top:12px;">
         <div class="tile">
           <h3>Compras</h3>
           <p class="muted">Compras, itens, garantias, anexos.</p>
@@ -280,35 +499,35 @@
     </div>
 
     <div class="card" style="margin-top:12px;">
-      <h2>RESULTADO DO DIA</h2>
+      <h2>Resultado do dia</h2>
       {% with rd=resultado_diario_dashboard %}
         {% if rd and rd.data_referencia %}
           <p class="muted">Base de cálculo em {{ rd.data_referencia|date:"d/m/Y" }} (ou última data disponível).</p>
-          <table style="width:100%;border-collapse:collapse;margin-top:10px;">
+          <table style="margin-top:10px;">
             <thead>
               <tr>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Unidade</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Vendas PDF</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Saídas Financeiro</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Resultado Liquido</th>
+                <th>Unidade</th>
+                <th>Vendas PDF</th>
+                <th>Saídas Financeiro</th>
+                <th>Resultado líquido</th>
               </tr>
             </thead>
             <tbody>
               {% for linha in rd.linhas %}
               <tr>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ linha.unidade|unit_label }}</td>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ linha.vendas|br_currency }}</td>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ linha.saidas|br_currency }}</td>
-                <td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>{{ linha.resultado|br_currency }}</strong></td>
+                <td>{{ linha.unidade|unit_label }}</td>
+                <td>{{ linha.vendas|br_currency }}</td>
+                <td>{{ linha.saidas|br_currency }}</td>
+                <td><strong>{{ linha.resultado|br_currency }}</strong></td>
               </tr>
               {% endfor %}
             </tbody>
             <tfoot>
               <tr>
-                <td style="padding:8px;"><strong>Consolidado</strong></td>
-                <td style="padding:8px;"><strong>{{ rd.total_vendas_geral|br_currency }}</strong></td>
-                <td style="padding:8px;"><strong>{{ rd.total_saidas_geral|br_currency }}</strong></td>
-                <td style="padding:8px;"><strong>{{ rd.resultado_geral|br_currency }}</strong></td>
+                <td><strong>Consolidado</strong></td>
+                <td><strong>{{ rd.total_vendas_geral|br_currency }}</strong></td>
+                <td><strong>{{ rd.total_saidas_geral|br_currency }}</strong></td>
+                <td><strong>{{ rd.resultado_geral|br_currency }}</strong></td>
               </tr>
             </tfoot>
           </table>
@@ -320,22 +539,22 @@
 
     {% if alertas_operacionais %}
     <div class="card" style="margin-top:12px;">
-      <h2>ALERTAS OPERACIONAIS (ADMIN)</h2>
+      <h2>Alertas operacionais (admin)</h2>
       <p class="muted">Movimentações fora do padrão e descontos acima do limite de 10%.</p>
-      <table style="width:100%;border-collapse:collapse;margin-top:10px;">
+      <table style="margin-top:10px;">
         <thead>
           <tr>
-            <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Data</th>
-            <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Tipo</th>
-            <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">Detalhe</th>
+            <th>Data</th>
+            <th>Tipo</th>
+            <th>Detalhe</th>
           </tr>
         </thead>
         <tbody>
           {% for alerta in alertas_operacionais %}
             <tr>
-              <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ alerta.data|date:"d/m/Y" }}</td>
-              <td style="padding:8px;border-bottom:1px solid #e5e7eb;"><strong>{{ alerta.tipo }}</strong></td>
-              <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{{ alerta.detalhe }}</td>
+              <td>{{ alerta.data|date:"d/m/Y" }}</td>
+              <td><strong>{{ alerta.tipo }}</strong></td>
+              <td>{{ alerta.detalhe }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -345,29 +564,59 @@
     {% endblock %}
   </main>
 </div>
+
 <script>
   (function () {
     var key = "erp_sidebar_accordion_state_v1";
+    var pathname = window.location.pathname || "/";
+    var body = document.body;
+    var toggle = document.getElementById("js-sidebar-toggle");
+    var overlay = document.getElementById("sidebar-overlay");
+    var menuLinks = Array.prototype.slice.call(document.querySelectorAll(".menu-link[href]"));
     var accordions = Array.prototype.slice.call(document.querySelectorAll(".menu-accordion[data-accordion-key]"));
+
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        body.classList.toggle("sidebar-open");
+      });
+    }
+
+    if (overlay) {
+      overlay.addEventListener("click", function () {
+        body.classList.remove("sidebar-open");
+      });
+    }
+
+    function linkIsActive(href) {
+      if (!href) return false;
+      if (href === "/") return pathname === "/";
+      return pathname === href || pathname.indexOf(href) === 0;
+    }
+
+    menuLinks.forEach(function (link) {
+      var href = link.getAttribute("href");
+      if (linkIsActive(href)) {
+        link.classList.add("active");
+      }
+      link.addEventListener("click", function () {
+        body.classList.remove("sidebar-open");
+      });
+    });
+
     if (!accordions.length) return;
 
     var state = {};
     try {
       state = JSON.parse(localStorage.getItem(key) || "{}");
-    } catch (e) {
+    } catch (err) {
       state = {};
     }
-
-    var pathname = window.location.pathname || "/";
 
     function inferOpenByPath(acc) {
       var links = acc.querySelectorAll("a.menu-link[href]");
       for (var i = 0; i < links.length; i++) {
         var href = links[i].getAttribute("href");
-        if (!href) continue;
-        if (pathname === href || (href !== "/" && pathname.indexOf(href) === 0)) {
-          return true;
-        }
+        if (linkIsActive(href)) return true;
       }
       return false;
     }
@@ -385,6 +634,3 @@
 </script>
 </body>
 </html>
-
-
-

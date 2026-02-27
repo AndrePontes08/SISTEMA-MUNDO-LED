@@ -1,72 +1,67 @@
 {% extends "base.html" %}
 {% load formatters %}
-{% block title %}Conciliacao Bancaria{% endblock %}
-{% block page_title %}Conciliacao Bancaria{% endblock %}
+{% block title %}Conciliação Bancária{% endblock %}
+{% block page_title %}Conciliação Bancária{% endblock %}
 {% block content %}
-<style>
-  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 10px rgba(0,0,0,.06);margin-bottom:12px}
-  .btn{display:inline-block;padding:7px 11px;border-radius:9px;background:#0f172a;color:#fff;text-decoration:none;border:none;cursor:pointer}
-  .btn.warn{background:#92400e}.btn.neutral{background:#374151}
-  table{width:100%;border-collapse:collapse;margin-top:8px}
-  th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}
-  .status{font-weight:700}
-</style>
-
 <div class="card">
-  <a class="btn" href="{% url 'financeiro:conciliacao' %}">Atualizar</a>
-  <a class="btn" href="{% url 'financeiro:importar_ofx' %}">Importar novo OFX</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a class="btn" href="{% url 'financeiro:conciliacao' %}">Atualizar</a>
+    <a class="btn btn-secondary" href="{% url 'financeiro:importar_ofx' %}">Importar novo OFX</a>
+  </div>
 </div>
 
-<div class="card">
-  <table>
-    <thead>
-      <tr>
-        <th>Transacao bancaria</th>
-        <th>Sugestoes de recebiveis</th>
-        <th>Status/Acoes</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for tx in transacoes %}
-      <tr>
-        <td>
-          <strong>#{{ tx.id }}</strong> {{ tx.data_lancamento }}<br>
-          Conta: {{ tx.conta.nome }}<br>
-          Descricao: {{ tx.descricao }}<br>
-          Valor: <strong>{{ tx.valor }}</strong>
-        </td>
-        <td>
-          {% with sugestoes=suggestions|get_item:tx.id %}
-            {% if sugestoes %}
-              {% for s in sugestoes %}
-                <label style="display:block;margin-bottom:4px">
-                  <input type="checkbox" form="form-{{ tx.id }}" name="recebiveis" value="{{ s.recebivel_id }}">
-                  #{{ s.recebivel_id }} - {{ s.data_prevista }} - {{ s.descricao }} - {{ s.valor }} (dif: {{ s.diferenca }})
-                </label>
-              {% endfor %}
-            {% else %}
-              Sem sugestoes.
-            {% endif %}
-          {% endwith %}
-        </td>
-        <td>
-          <div class="status">{{ tx.status_conciliacao }}</div>
-          <form id="form-{{ tx.id }}" method="post" action="{% url 'financeiro:conciliacao_action' tx.id %}">
-            {% csrf_token %}
-            <input type="hidden" name="querystring" value="{{ querystring }}">
-            <textarea name="observacao" rows="2" style="width:100%" placeholder="Observacao"></textarea>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-              <button class="btn" name="action" value="conciliar" type="submit">Conciliar</button>
-              <button class="btn warn" name="action" value="divergente" type="submit">Divergente</button>
-              <button class="btn neutral" name="action" value="ignorar" type="submit">Ignorar</button>
-            </div>
-          </form>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="3">Sem transacoes pendentes/sugeridas.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="card" style="margin-top:12px;">
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>Transação bancária</th>
+          <th>Sugestões de recebíveis</th>
+          <th>Status / Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in transacoes %}
+        <tr>
+          <td>
+            <strong>#{{ tx.id }}</strong> {{ tx.data_lancamento }}<br>
+            Conta: {{ tx.conta.nome }}<br>
+            Descrição: {{ tx.descricao }}<br>
+            Valor: <strong>{{ tx.valor }}</strong>
+          </td>
+          <td>
+            {% with sugestoes=suggestions|get_item:tx.id %}
+              {% if sugestoes %}
+                {% for s in sugestoes %}
+                  <label style="display:block;margin-bottom:4px">
+                    <input type="checkbox" form="form-{{ tx.id }}" name="recebiveis" value="{{ s.recebivel_id }}">
+                    #{{ s.recebivel_id }} - {{ s.data_prevista }} - {{ s.descricao }} - {{ s.valor }} (dif: {{ s.diferenca }})
+                  </label>
+                {% endfor %}
+              {% else %}
+                <span class="muted">Sem sugestões.</span>
+              {% endif %}
+            {% endwith %}
+          </td>
+          <td>
+            <div><strong>{{ tx.status_conciliacao }}</strong></div>
+            <form id="form-{{ tx.id }}" method="post" action="{% url 'financeiro:conciliacao_action' tx.id %}">
+              {% csrf_token %}
+              <input type="hidden" name="querystring" value="{{ querystring }}">
+              <textarea name="observacao" rows="2" style="width:100%" placeholder="Observação"></textarea>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+                <button class="btn btn-sm" name="action" value="conciliar" type="submit">Conciliar</button>
+                <button class="btn btn-sm" name="action" value="divergente" type="submit">Divergente</button>
+                <button class="btn btn-sm btn-secondary" name="action" value="ignorar" type="submit">Ignorar</button>
+              </div>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3">Sem transações pendentes/sugeridas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}
