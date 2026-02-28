@@ -21,7 +21,7 @@ from core.services.paginacao import get_pagination_params
 from core.services.permissoes import GroupRequiredMixin
 from core.services.formato_brl import format_brl, payment_label, unit_label
 from estoque.models import ProdutoEstoque, ProdutoEstoqueUnidade
-from vendas.forms import CancelarVendaForm, FechamentoCaixaForm, ItemVendaFormSet, VendaForm
+from vendas.forms import CancelarVendaForm, ClienteRapidoForm, FechamentoCaixaForm, ItemVendaFormSet, VendaForm
 from vendas.models import (
     FechamentoCaixaDiario,
     ItemVenda,
@@ -352,6 +352,28 @@ def _resolve_produto_info(produto_id: int, unidade: str = "") -> dict:
         "saldo_unidade": saldo_unidade,
         "saldos_unidade": saldos_unidade,
     }
+
+
+class ClienteQuickCreateView(VendasAccessMixin, View):
+    def post(self, request, *args, **kwargs):
+        form = ClienteRapidoForm(request.POST)
+        if not form.is_valid():
+            return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+
+        cliente = form.save(commit=False)
+        cliente.ativo = True
+        cliente.save()
+        return JsonResponse(
+            {
+                "ok": True,
+                "cliente": {
+                    "id": cliente.id,
+                    "nome": cliente.nome,
+                    "cpf_cnpj": cliente.cpf_cnpj,
+                },
+            },
+            status=201,
+        )
 
 
 class VendaListView(VendasAccessMixin, ListView):

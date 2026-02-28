@@ -18,6 +18,7 @@ class ClienteForm(forms.ModelForm):
         model = Cliente
         fields = [
             "nome",
+            "data_nascimento",
             "cpf_cnpj",
             "email",
             "telefone",
@@ -26,6 +27,7 @@ class ClienteForm(forms.ModelForm):
             "ativo",
         ]
         widgets = {
+            "data_nascimento": forms.DateInput(attrs={"type": "date"}),
             "endereco": forms.Textarea(attrs={"rows": 3}),
         }
 

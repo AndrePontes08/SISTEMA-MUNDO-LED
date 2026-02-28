@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.urls import path
 
 from vendas.views import (
+    ClienteQuickCreateView,
     FechamentoCaixaGerarView,
     FechamentoCaixaListView,
     FechamentoCaixaPDFView,
@@ -30,6 +31,7 @@ urlpatterns = [
     path("fechamentos/gerar/", FechamentoCaixaGerarView.as_view(), name="fechamento_caixa_gerar"),
     path("fechamentos/<int:pk>/pdf/", FechamentoCaixaPDFView.as_view(), name="fechamento_caixa_pdf"),
     path("nova/", VendaCreateView.as_view(), name="venda_create"),
+    path("clientes/cadastro-rapido/", ClienteQuickCreateView.as_view(), name="cliente_quick_create"),
     path("produto-info/<int:produto_id>/", ProdutoInfoView.as_view(), name="produto_info"),
     path("<int:pk>/", VendaDetailView.as_view(), name="venda_detail"),
     path("<int:pk>/pdf/", VendaPDFView.as_view(), name="venda_pdf"),

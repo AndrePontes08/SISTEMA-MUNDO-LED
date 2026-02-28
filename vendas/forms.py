@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from decimal import Decimal
+import re
 
 from django import forms
 from django.contrib.auth import get_user_model
 from django.forms import inlineformset_factory
 from django.utils import timezone
 
+from boletos.models import Cliente
 from core.services.formato_brl import payment_label
 from vendas.models import ItemVenda, TipoPagamentoChoices, Venda
 
@@ -80,6 +82,37 @@ class VendaForm(forms.ModelForm):
         if possui_boleto and not primeiro_vencimento:
             raise forms.ValidationError("Informe o primeiro vencimento para vendas parceladas.")
         return cleaned
+
+
+class ClienteRapidoForm(forms.ModelForm):
+    class Meta:
+        model = Cliente
+        fields = [
+            "nome",
+            "data_nascimento",
+            "cpf_cnpj",
+            "endereco",
+            "telefone",
+        ]
+        widgets = {
+            "data_nascimento": forms.DateInput(attrs={"type": "date"}),
+            "endereco": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def clean_nome(self):
+        nome = (self.cleaned_data.get("nome") or "").strip()
+        if not nome:
+            raise forms.ValidationError("Informe o nome do cliente.")
+        return nome
+
+    def clean_cpf_cnpj(self):
+        raw = (self.cleaned_data.get("cpf_cnpj") or "").strip()
+        digits = re.sub(r"\D", "", raw)
+        if len(digits) not in (11, 14):
+            raise forms.ValidationError("Informe um CPF (11 dígitos) ou CNPJ (14 dígitos).")
+        if Cliente.objects.filter(cpf_cnpj=digits).exists():
+            raise forms.ValidationError("Já existe cliente cadastrado com este CPF/CNPJ.")
+        return digits
 
 
 class ItemVendaForm(forms.ModelForm):

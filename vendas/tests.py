@@ -213,6 +213,27 @@ class VendasViewUXTest(TestCase):
         self.produto = Produto.objects.create(nome="Produto UX", sku="UX-1", ativo=True)
         registrar_entrada(produto=self.produto, quantidade=Decimal("50.000"))
 
+    def test_cadastro_rapido_cliente_na_tela_de_venda(self):
+        self.client.force_login(self.vendedor)
+        response = self.client.post(
+            reverse("vendas:cliente_quick_create"),
+            data={
+                "nome": "Cliente Novo Venda",
+                "data_nascimento": "1992-08-10",
+                "cpf_cnpj": "123.456.789-09",
+                "endereco": "Rua Teste, 100",
+                "telefone": "(84) 99999-0000",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertTrue(payload.get("ok"))
+        cliente = Cliente.objects.get(nome="Cliente Novo Venda")
+        self.assertEqual(cliente.cpf_cnpj, "12345678909")
+        self.assertEqual(str(cliente.data_nascimento), "1992-08-10")
+        self.assertEqual(cliente.telefone, "(84) 99999-0000")
+
     def test_vendedor_logado_define_proprietario_da_venda(self):
         self.client.force_login(self.vendedor)
         data_antiga = (timezone.localdate() - timedelta(days=30)).isoformat()

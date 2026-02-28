@@ -43,6 +43,7 @@ class RamoAtuacao(models.Model):
 class Cliente(models.Model):
     """Cliente que pode ter boletos e fiados"""
     nome = models.CharField(max_length=255)
+    data_nascimento = models.DateField(blank=True, null=True)
     nome_normalizado = models.CharField(max_length=255, db_index=True)
     cpf_cnpj = models.CharField(max_length=18, unique=True, db_index=True)
     email = models.EmailField(blank=True, default="")

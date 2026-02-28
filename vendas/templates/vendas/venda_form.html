@@ -155,6 +155,38 @@
     background: #fee2e2;
     border-color: #fca5a5;
   }
+  .quick-client-box {
+    margin-top: 8px;
+    padding: 10px;
+    border: 1px solid #dbe5f3;
+    border-radius: 10px;
+    background: #f8fbff;
+    display: none;
+  }
+  .quick-client-box.is-open {
+    display: block;
+  }
+  .quick-client-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+  .quick-client-grid .span-2 {
+    grid-column: 1 / -1;
+  }
+  .quick-client-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+  }
+  .quick-client-msg {
+    font-size: .82rem;
+    color: #475569;
+  }
+  .quick-client-msg.error {
+    color: #b91c1c;
+  }
 </style>
 <div class="quick-sale-overlay">
   {% if form.instance.pk %}
@@ -181,6 +213,38 @@
       <div>
         <label class="sales-label" for="{{ form.cliente.id_for_label }}">{{ form.cliente.label }}</label>
         {{ form.cliente }}
+        <div style="margin-top:6px;">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-open-quick-client" data-url="{% url 'vendas:cliente_quick_create' %}">+ Cadastrar cliente</button>
+        </div>
+        <div id="quick-client-box" class="quick-client-box">
+          <div class="quick-client-grid">
+            <div>
+              <label class="sales-label" for="id_qc_nome">Nome</label>
+              <input id="id_qc_nome" type="text" placeholder="Nome completo">
+            </div>
+            <div>
+              <label class="sales-label" for="id_qc_data_nascimento">Data de nascimento</label>
+              <input id="id_qc_data_nascimento" type="date">
+            </div>
+            <div>
+              <label class="sales-label" for="id_qc_cpf_cnpj">CPF ou CNPJ</label>
+              <input id="id_qc_cpf_cnpj" type="text" inputmode="numeric" placeholder="Somente números">
+            </div>
+            <div>
+              <label class="sales-label" for="id_qc_telefone">Número para contato</label>
+              <input id="id_qc_telefone" type="text" placeholder="(00) 00000-0000">
+            </div>
+            <div class="span-2">
+              <label class="sales-label" for="id_qc_endereco">Endereço</label>
+              <textarea id="id_qc_endereco" rows="2" placeholder="Rua, número, bairro, cidade"></textarea>
+            </div>
+          </div>
+          <div class="quick-client-actions">
+            <button type="button" class="btn btn-sm" id="btn-save-quick-client">Salvar cliente</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-quick-client">Cancelar</button>
+            <span id="quick-client-msg" class="quick-client-msg"></span>
+          </div>
+        </div>
       </div>
       <div>
         <label class="sales-label" for="{{ form.vendedor.id_for_label }}">{{ form.vendedor.label }}</label>
@@ -410,6 +474,19 @@
     const produtoInfoUrlBaseEl = document.getElementById("produto-info-url-base");
     const produtoInfoUrlBase = produtoInfoUrlBaseEl ? JSON.parse(produtoInfoUrlBaseEl.textContent || "\"\"") : "";
     const unidadeSaidaEl = document.getElementById("id_unidade_saida");
+    const clienteSelectEl = document.getElementById("id_cliente");
+    const quickClientOpenBtn = document.getElementById("btn-open-quick-client");
+    const quickClientBox = document.getElementById("quick-client-box");
+    const quickClientCancelBtn = document.getElementById("btn-cancel-quick-client");
+    const quickClientSaveBtn = document.getElementById("btn-save-quick-client");
+    const quickClientMsgEl = document.getElementById("quick-client-msg");
+    const quickClientFields = {
+      nome: document.getElementById("id_qc_nome"),
+      data_nascimento: document.getElementById("id_qc_data_nascimento"),
+      cpf_cnpj: document.getElementById("id_qc_cpf_cnpj"),
+      telefone: document.getElementById("id_qc_telefone"),
+      endereco: document.getElementById("id_qc_endereco"),
+    };
 
     const boletoFields = [
       document.getElementById("field-numero-parcelas"),
@@ -430,6 +507,99 @@
       }
       const num = Number(normalized);
       return Number.isFinite(num) ? num : 0;
+    }
+
+    function csrfToken() {
+      const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      return input ? input.value : "";
+    }
+
+    function setQuickClientMessage(message, isError) {
+      if (!quickClientMsgEl) return;
+      quickClientMsgEl.textContent = message || "";
+      quickClientMsgEl.classList.toggle("error", Boolean(isError));
+    }
+
+    function clearQuickClientFields() {
+      Object.keys(quickClientFields).forEach(function (key) {
+        const el = quickClientFields[key];
+        if (el) el.value = "";
+      });
+      setQuickClientMessage("", false);
+    }
+
+    function toggleQuickClientBox(open) {
+      if (!quickClientBox) return;
+      quickClientBox.classList.toggle("is-open", Boolean(open));
+      if (open && quickClientFields.nome) quickClientFields.nome.focus();
+    }
+
+    function addClienteOption(clienteId, clienteNome) {
+      if (!clienteSelectEl) return;
+      let option = clienteSelectEl.querySelector('option[value="' + String(clienteId) + '"]');
+      if (!option) {
+        option = document.createElement("option");
+        option.value = String(clienteId);
+        option.textContent = clienteNome;
+        clienteSelectEl.appendChild(option);
+      }
+      clienteSelectEl.value = String(clienteId);
+      clienteSelectEl.dispatchEvent(new Event("change"));
+    }
+
+    function saveQuickClient() {
+      if (!quickClientSaveBtn || !quickClientOpenBtn) return;
+      const postUrl = quickClientOpenBtn.dataset.url || "";
+      if (!postUrl) return;
+
+      const payload = new URLSearchParams();
+      payload.append("nome", (quickClientFields.nome && quickClientFields.nome.value || "").trim());
+      payload.append("data_nascimento", (quickClientFields.data_nascimento && quickClientFields.data_nascimento.value || "").trim());
+      payload.append("cpf_cnpj", (quickClientFields.cpf_cnpj && quickClientFields.cpf_cnpj.value || "").trim());
+      payload.append("telefone", (quickClientFields.telefone && quickClientFields.telefone.value || "").trim());
+      payload.append("endereco", (quickClientFields.endereco && quickClientFields.endereco.value || "").trim());
+
+      if (!payload.get("nome") || !payload.get("cpf_cnpj")) {
+        setQuickClientMessage("Preencha nome e CPF/CNPJ para cadastrar.", true);
+        return;
+      }
+
+      quickClientSaveBtn.disabled = true;
+      setQuickClientMessage("Salvando cliente...", false);
+      fetch(postUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "X-CSRFToken": csrfToken(),
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        body: payload.toString(),
+      })
+        .then(function (resp) {
+          return resp.json().then(function (json) {
+            return { status: resp.status, json: json };
+          });
+        })
+        .then(function (result) {
+          if (result.status >= 200 && result.status < 300 && result.json && result.json.ok) {
+            const cliente = result.json.cliente || {};
+            addClienteOption(cliente.id, cliente.nome || "Cliente");
+            setQuickClientMessage("Cliente cadastrado e selecionado.", false);
+            clearQuickClientFields();
+            toggleQuickClientBox(false);
+            return;
+          }
+          const errors = (result.json && result.json.errors) || {};
+          const firstErrorKey = Object.keys(errors)[0];
+          const firstError = firstErrorKey ? String(errors[firstErrorKey][0] || "Erro ao cadastrar cliente.") : "Erro ao cadastrar cliente.";
+          setQuickClientMessage(firstError, true);
+        })
+        .catch(function () {
+          setQuickClientMessage("Falha ao cadastrar cliente. Tente novamente.", true);
+        })
+        .finally(function () {
+          quickClientSaveBtn.disabled = false;
+        });
     }
 
     function toBRL(value) {
@@ -717,6 +887,23 @@
         totalForms.value = String(idx + 1);
         recalculateSummary();
       });
+    }
+
+    if (quickClientOpenBtn) {
+      quickClientOpenBtn.addEventListener("click", function () {
+        const isOpen = quickClientBox && quickClientBox.classList.contains("is-open");
+        toggleQuickClientBox(!isOpen);
+        if (isOpen) clearQuickClientFields();
+      });
+    }
+    if (quickClientCancelBtn) {
+      quickClientCancelBtn.addEventListener("click", function () {
+        clearQuickClientFields();
+        toggleQuickClientBox(false);
+      });
+    }
+    if (quickClientSaveBtn) {
+      quickClientSaveBtn.addEventListener("click", saveQuickClient);
     }
 
     if (tipoPagamento) tipoPagamento.addEventListener("change", toggleBoletoFields);
