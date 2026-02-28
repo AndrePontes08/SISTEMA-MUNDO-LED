@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 from decimal import Decimal, InvalidOperation
+import unicodedata
 
 from django.contrib import messages
 from django.db import transaction
@@ -68,6 +69,18 @@ def _is_admin_autorizado(user) -> bool:
 
 class EstoqueManageAccessMixin(GroupRequiredMixin):
     required_groups = ("admin/gestor", "compras/estoque", "estoquista")
+
+
+def _garantir_configs_estoque_produtos_ativos() -> None:
+    existentes = set(ProdutoEstoque.objects.values_list("produto_id", flat=True))
+    faltantes = list(
+        Produto.objects.filter(ativo=True).exclude(id__in=existentes).only("id")
+    )
+    if faltantes:
+        ProdutoEstoque.objects.bulk_create(
+            [ProdutoEstoque(produto=produto) for produto in faltantes],
+            ignore_conflicts=True,
+        )
 
 
 class EstoqueDashboardView(EstoqueReadOnlyAccessMixin, TemplateView):
@@ -156,50 +169,49 @@ class EstoqueCompletoView(EstoqueReadOnlyAccessMixin, ListView):
             text = raw.decode("latin-1")
 
         sample = text[:4096]
-        try:
-            delimiter = csv.Sniffer().sniff(sample, delimiters=";,").delimiter
-        except Exception:
-            delimiter = ";"
+        lines = text.splitlines()
+        header_line = lines[0] if lines else ""
+        delimiter = ";" if header_line.count(";") >= header_line.count(",") else ","
 
         reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+        # Fallback: alguns CSVs chegam com header inteiro em uma coluna só.
+        if reader.fieldnames and len(reader.fieldnames) == 1 and ";" in str(reader.fieldnames[0]):
+            reader = csv.DictReader(io.StringIO(text), delimiter=";")
         atualizados = 0
         ignorados = 0
         for row in reader:
-            sku = (
-                row.get("sku")
-                or row.get("SKU")
-                or row.get("Sku")
-                or ""
-            ).strip()
+            normalized: dict[str, str] = {}
+            for key, value in (row or {}).items():
+                raw_key = str(key or "").strip().lower()
+                ascii_key = (
+                    unicodedata.normalize("NFKD", raw_key)
+                    .encode("ascii", "ignore")
+                    .decode("ascii")
+                )
+                ascii_key = ascii_key.replace(" ", "_")
+                normalized[ascii_key] = value
+
+            sku = (normalized.get("sku") or "").strip()
             if not sku:
                 ignorados += 1
                 continue
 
             # Compatível com layouts diferentes de planilha (incluindo gestao-estoque.csv).
             custo_medio_raw = (
-                row.get("custo_medio")
-                or row.get("CUSTO_MEDIO")
-                or row.get("Custo Médio")
-                or row.get("Custo Medio")
-                or row.get("custo")
-                or row.get("CUSTO")
-                or row.get("preco")
-                or row.get("PRECO")
-                or row.get("Valor de Venda")
-                or row.get("valor_venda")
+                normalized.get("custo_medio")
+                or normalized.get("custo")
+                or normalized.get("preco")
+                or normalized.get("valor_de_venda")
+                or normalized.get("valor_venda")
                 or ""
             )
             custo_total_raw = (
-                row.get("Custo Total")
-                or row.get("custo_total")
-                or row.get("CUSTO_TOTAL")
+                normalized.get("custo_total")
                 or ""
             )
-            reservado_raw = row.get("Reservado") or row.get("reservado") or ""
+            reservado_raw = normalized.get("reservado") or ""
             disponivel_raw = (
-                row.get("Disponível")
-                or row.get("Disponivel")
-                or row.get("disponivel")
+                normalized.get("disponivel")
                 or ""
             )
 
@@ -226,9 +238,9 @@ class EstoqueCompletoView(EstoqueReadOnlyAccessMixin, ListView):
                 ignorados += 1
                 continue
 
-            cfg = ProdutoEstoque.objects.select_related("produto").filter(produto__sku=sku).first()
+            cfg = ProdutoEstoque.objects.select_related("produto").filter(produto__sku__iexact=sku).first()
             if not cfg:
-                produto = Produto.objects.filter(sku=sku).first()
+                produto = Produto.objects.filter(sku__iexact=sku).first()
                 if not produto:
                     ignorados += 1
                     continue
@@ -247,6 +259,7 @@ class EstoqueCompletoView(EstoqueReadOnlyAccessMixin, ListView):
         return get_pagination_params(self.request).page_size
 
     def get_queryset(self):
+        _garantir_configs_estoque_produtos_ativos()
         qs = ProdutoEstoque.objects.select_related("produto").order_by("produto__nome")
         q = (self.request.GET.get("q") or "").strip()
         if q:
@@ -272,6 +285,10 @@ class EstoqueCompletoView(EstoqueReadOnlyAccessMixin, ListView):
                 elif row.unidade == UnidadeLoja.LOJA_2:
                     cfg.saldo_ml = str(row.saldo_atual)
                     saldo_ml_dec = row.saldo_atual or Decimal("0.000")
+            saldo_total_unidades = (saldo_fm_dec + saldo_ml_dec).quantize(Decimal("0.001"))
+            if (cfg.saldo_atual or Decimal("0.000")) != saldo_total_unidades:
+                cfg.saldo_atual = saldo_total_unidades
+                cfg.save(update_fields=["saldo_atual", "atualizado_em"])
             custo = cfg.custo_medio or Decimal("0.0000")
             cfg.valor_fm = (saldo_fm_dec * custo).quantize(Decimal("0.01"))
             cfg.valor_ml = (saldo_ml_dec * custo).quantize(Decimal("0.01"))

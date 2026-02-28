@@ -21,7 +21,7 @@
     {% csrf_token %}
     {{ import_form.arquivo }}
     <button type="submit" style="padding:10px 12px; border-radius:10px; border:1px solid #111827;">Importar custos CSV</button>
-    <span class="muted">Colunas aceitas: `SKU` e `CUSTO_MEDIO` (ou `PRECO`).</span>
+    <span class="muted">Colunas aceitas: `SKU` + `Custo Médio`/`CUSTO_MEDIO` (fallback: `Custo Total` + `Reservado` + `Disponível` ou `Valor de Venda`).</span>
   </form>
 
   <table>

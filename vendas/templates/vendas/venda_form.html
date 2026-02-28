@@ -494,13 +494,9 @@
       const info = produtosInfo[produtoId];
       const valorUnitario = toNumber(info.valor_unitario);
       if (precoInput && shouldAutofillPrice) {
-        const precoAtual = toNumber(precoInput.value);
-        const autoFillOrigem = precoInput.dataset.autoFillOrigem || "";
-        const podeAtualizar = precoAtual <= 0 || autoFillOrigem === produtoId;
-        if (podeAtualizar) {
-          precoInput.value = valorUnitario.toFixed(2);
-          precoInput.dataset.autoFillOrigem = produtoId;
-        }
+        // Mudou produto: sempre atualizar preço para o item selecionado.
+        precoInput.value = valorUnitario.toFixed(2);
+        precoInput.dataset.autoFillOrigem = produtoId;
       }
       if (precoInput && !shouldAutofillPrice && !precoInput.value.trim()) {
         precoInput.value = valorUnitario.toFixed(2);
