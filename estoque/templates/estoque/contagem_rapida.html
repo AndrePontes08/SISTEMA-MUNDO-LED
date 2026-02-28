@@ -42,12 +42,13 @@
     <h3 style="margin:18px 0 8px 0;">Itens contados</h3>
     {{ formset.management_form }}
     <table id="itens-table">
-      <thead><tr><th>Produto</th><th>Quantidade contada</th><th>Remover</th></tr></thead>
+      <thead><tr><th>Produto</th><th>Quantidade contada</th><th>Preco/Valor (R$)</th><th>Remover</th></tr></thead>
       <tbody>
         {% for f in formset %}
           <tr class="item-row">
             <td>{{ f.produto }}{{ f.produto.errors }}</td>
             <td>{{ f.quantidade_contada }}{{ f.quantidade_contada.errors }}</td>
+            <td>{{ f.valor_unitario }}{{ f.valor_unitario.errors }}</td>
             <td>{{ f.DELETE }}</td>
           </tr>
         {% endfor %}
@@ -82,6 +83,7 @@
   <tr class="item-row">
     <td>__PRODUTO__</td>
     <td>__QTD__</td>
+    <td>__VALOR__</td>
     <td>__DELETE__</td>
   </tr>
 </template>
@@ -94,6 +96,7 @@
     const template = document.getElementById("empty-form-template");
     const emptyProduto = `{{ formset.empty_form.produto|escapejs }}`;
     const emptyQtd = `{{ formset.empty_form.quantidade_contada|escapejs }}`;
+    const emptyValor = `{{ formset.empty_form.valor_unitario|escapejs }}`;
     const emptyDelete = `{{ formset.empty_form.DELETE|escapejs }}`;
 
     addBtn.addEventListener("click", function () {
@@ -101,6 +104,7 @@
       let html = template.innerHTML;
       html = html.replace("__PRODUTO__", emptyProduto.replaceAll("__prefix__", String(idx)));
       html = html.replace("__QTD__", emptyQtd.replaceAll("__prefix__", String(idx)));
+      html = html.replace("__VALOR__", emptyValor.replaceAll("__prefix__", String(idx)));
       html = html.replace("__DELETE__", emptyDelete.replaceAll("__prefix__", String(idx)));
       const wrapper = document.createElement("tbody");
       wrapper.innerHTML = html.trim();

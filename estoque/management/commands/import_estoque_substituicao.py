@@ -90,7 +90,14 @@ class Command(BaseCommand):
             disponivel = _dec(row.get("Disponível") or row.get("disponivel") or row.get("Disponivel"))
             quantidade = reservado + disponivel
             custo_total = _dec(row.get("Custo Total") or row.get("custo_total") or row.get("CUSTO_TOTAL"))
-            custo_medio = _dec(row.get("Custo Médio") or row.get("custo_medio") or row.get("CUSTO_MEDIO"))
+            custo_medio = _dec(
+                row.get("Valor Utilizado")
+                or row.get("valor_utilizado")
+                or row.get("VALOR_UTILIZADO")
+                or row.get("Custo Médio")
+                or row.get("custo_medio")
+                or row.get("CUSTO_MEDIO")
+            )
             valor_venda = _dec(row.get("Valor de Venda") or row.get("valor_venda") or row.get("VALOR_VENDA"))
 
             existing = aggregated.get(sku)

@@ -51,13 +51,20 @@ def aplicar_contagem_rapida(
 
     itens_ajustados = 0
     produtos_tocados: set[int] = set()
+    custos_tocados: dict[int, Decimal] = {}
     nome_unidade = UnidadeLoja(unidade).label
 
     for item in itens:
         produto = item["produto"]
         quantidade_contada = Decimal(item["quantidade_contada"]).quantize(Decimal("0.001"))
+        valor_unitario_raw = item.get("valor_unitario")
         if quantidade_contada < 0:
             raise ValueError("Quantidade contada não pode ser negativa.")
+        if valor_unitario_raw is not None and str(valor_unitario_raw) != "":
+            valor_unitario = Decimal(valor_unitario_raw).quantize(Decimal("0.0001"))
+            if valor_unitario < 0:
+                raise ValueError("Valor unitário não pode ser negativo.")
+            custos_tocados[produto.id] = valor_unitario
 
         garantir_estoque_unidades_produto(produto)
         saldo_unidade, _ = ProdutoEstoqueUnidade.objects.select_for_update().get_or_create(
@@ -91,5 +98,9 @@ def aplicar_contagem_rapida(
     for produto_id in produtos_tocados:
         produto = Produto.objects.get(pk=produto_id)
         _sincronizar_saldo_consolidado(produto)
+        if produto_id in custos_tocados:
+            cfg, _ = ProdutoEstoque.objects.get_or_create(produto=produto)
+            cfg.custo_medio = custos_tocados[produto_id]
+            cfg.save(update_fields=["custo_medio", "atualizado_em"])
 
     return ContagemRapidaResult(total_itens=len(itens), itens_ajustados=itens_ajustados)

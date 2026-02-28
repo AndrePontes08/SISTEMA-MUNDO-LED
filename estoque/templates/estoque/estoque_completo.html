@@ -10,6 +10,10 @@
   .muted { color:#6b7280; font-size:13px; }
   .chip { padding:6px 10px; background:#f3f4f6; border-radius:999px; text-decoration:none; color:#111827; }
   .pager { margin-top: 12px; display:flex; gap:8px; align-items:center; }
+  .btn-sm { padding:6px 8px; border:1px solid #111827; border-radius:8px; background:#fff; cursor:pointer; font-size:12px; }
+  .quick-edit { margin-top:8px; display:grid; gap:6px; }
+  .quick-edit-grid { display:grid; grid-template-columns: repeat(3, minmax(90px, 1fr)); gap:6px; }
+  .quick-edit input { width:100%; padding:7px 8px; border:1px solid #d1d5db; border-radius:8px; font-size:12px; }
 </style>
 <div class="card">
   <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -21,11 +25,11 @@
     {% csrf_token %}
     {{ import_form.arquivo }}
     <button type="submit" style="padding:10px 12px; border-radius:10px; border:1px solid #111827;">Importar custos CSV</button>
-    <span class="muted">Colunas aceitas: `SKU` + `Custo Médio`/`CUSTO_MEDIO` (fallback: `Custo Total` + `Reservado` + `Disponível` ou `Valor de Venda`).</span>
+    <span class="muted">Colunas aceitas: `SKU` + `Valor Utilizado` (ou `Custo Médio`/`CUSTO_MEDIO`; fallback: `Custo Total` + `Reservado` + `Disponível` ou `Valor de Venda`).</span>
   </form>
 
   <table>
-    <thead><tr><th>Produto</th><th>FM COMERCIO - UNIDADE 1</th><th>ML COMERCIO - UNIDADE 2</th><th>Total</th><th>Valor Unitário</th><th>Valor FM</th><th>Valor ML</th><th>Valor Total</th><th>Atualizado</th></tr></thead>
+    <thead><tr><th>Produto</th><th>FM COMERCIO - UNIDADE 1</th><th>ML COMERCIO - UNIDADE 2</th><th>Total</th><th>Valor Unitário</th><th>Valor FM</th><th>Valor ML</th><th>Valor Total</th><th>Atualizado</th><th>Ação</th></tr></thead>
     <tbody>
     {% for cfg in configs %}
       <tr>
@@ -38,8 +42,22 @@
         <td>{{ cfg.valor_ml|br_currency }}</td>
         <td><strong>{{ cfg.valor_total|br_currency }}</strong></td>
         <td>{{ cfg.atualizado_em|date:"d/m/Y H:i" }}</td>
+        <td>
+          <details>
+            <summary class="btn-sm">Ajuste rápido</summary>
+            <form method="post" action="{% url 'estoque:estoque_ajuste_rapido' cfg.id %}" class="quick-edit">
+              {% csrf_token %}
+              <div class="quick-edit-grid">
+                <input name="custo_medio" value="{{ cfg.custo_medio }}" placeholder="Valor unitário">
+                <input name="saldo_fm" value="{{ cfg.saldo_fm }}" placeholder="Qtd FM">
+                <input name="saldo_ml" value="{{ cfg.saldo_ml }}" placeholder="Qtd ML">
+              </div>
+              <button type="submit" class="btn-sm">Salvar</button>
+            </form>
+          </details>
+        </td>
       </tr>
-    {% empty %}<tr><td colspan="9" class="muted">Nenhum registro.</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="10" class="muted">Nenhum registro.</td></tr>{% endfor %}
     </tbody>
     <tfoot>
       <tr>

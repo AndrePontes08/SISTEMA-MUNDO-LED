@@ -287,6 +287,30 @@ class ContagemRapidaTest(TestCase):
         self.assertEqual(unidade_ml.saldo_atual, Decimal("4.000"))
         self.assertEqual(cfg.saldo_atual, Decimal("12.500"))
 
+    def test_contagem_rapida_atualiza_valor_unitario_quando_informado(self):
+        produto = Produto.objects.create(nome="Produto Contagem Valor", sku="CTV-1", ativo=True)
+        ProdutoEstoque.objects.create(produto=produto, saldo_atual=Decimal("2.000"), custo_medio=Decimal("15.0000"))
+        ProdutoEstoqueUnidade.objects.create(produto=produto, unidade=UnidadeLoja.LOJA_1, saldo_atual=Decimal("2.000"))
+        ProdutoEstoqueUnidade.objects.create(produto=produto, unidade=UnidadeLoja.LOJA_2, saldo_atual=Decimal("0.000"))
+
+        result = aplicar_contagem_rapida(
+            unidade=UnidadeLoja.LOJA_1,
+            itens=[
+                {
+                    "produto": produto,
+                    "quantidade_contada": Decimal("3.000"),
+                    "valor_unitario": Decimal("21.90"),
+                }
+            ],
+            observacao="Ajuste com valor",
+        )
+
+        self.assertEqual(result.total_itens, 1)
+        self.assertEqual(result.itens_ajustados, 1)
+        cfg = ProdutoEstoque.objects.get(produto=produto)
+        self.assertEqual(cfg.saldo_atual, Decimal("3.000"))
+        self.assertEqual(cfg.custo_medio, Decimal("21.9000"))
+
 
 class SaidaOperacionalTest(TestCase):
     def test_saida_operacional_baixa_unidade_e_total(self):

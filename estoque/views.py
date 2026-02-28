@@ -198,7 +198,8 @@ class EstoqueCompletoView(EstoqueReadOnlyAccessMixin, ListView):
 
             # Compatível com layouts diferentes de planilha (incluindo gestao-estoque.csv).
             custo_medio_raw = (
-                normalized.get("custo_medio")
+                normalized.get("valor_utilizado")
+                or normalized.get("custo_medio")
                 or normalized.get("custo")
                 or normalized.get("preco")
                 or normalized.get("valor_de_venda")
@@ -301,6 +302,50 @@ class EstoqueCompletoView(EstoqueReadOnlyAccessMixin, ListView):
         ctx["total_valor_ml"] = total_valor_ml.quantize(Decimal("0.01"))
         ctx["total_valor_geral"] = total_valor_geral.quantize(Decimal("0.01"))
         return ctx
+
+
+class EstoqueAjusteRapidoView(EstoqueManageAccessMixin, View):
+    @staticmethod
+    def _to_dec(raw: str, scale: str) -> Decimal:
+        txt = str(raw or "").strip()
+        if txt == "":
+            return Decimal("0").quantize(Decimal(scale))
+        if "." in txt and "," in txt:
+            txt = txt.replace(".", "").replace(",", ".")
+        elif "," in txt:
+            txt = txt.replace(",", ".")
+        try:
+            val = Decimal(txt)
+        except (InvalidOperation, ValueError):
+            val = Decimal("0")
+        if val < 0:
+            val = Decimal("0")
+        return val.quantize(Decimal(scale))
+
+    def post(self, request, *args, **kwargs):
+        cfg = ProdutoEstoque.objects.select_related("produto").filter(pk=kwargs["pk"]).first()
+        if not cfg:
+            messages.error(request, "Item de estoque não encontrado.")
+            return redirect("estoque:estoque_completo")
+
+        custo_medio = self._to_dec(request.POST.get("custo_medio"), "0.0001")
+        saldo_fm = self._to_dec(request.POST.get("saldo_fm"), "0.001")
+        saldo_ml = self._to_dec(request.POST.get("saldo_ml"), "0.001")
+        saldo_total = (saldo_fm + saldo_ml).quantize(Decimal("0.001"))
+
+        unidade_fm, _ = ProdutoEstoqueUnidade.objects.get_or_create(produto=cfg.produto, unidade=UnidadeLoja.LOJA_1)
+        unidade_ml, _ = ProdutoEstoqueUnidade.objects.get_or_create(produto=cfg.produto, unidade=UnidadeLoja.LOJA_2)
+        unidade_fm.saldo_atual = saldo_fm
+        unidade_ml.saldo_atual = saldo_ml
+        unidade_fm.save(update_fields=["saldo_atual", "atualizado_em"])
+        unidade_ml.save(update_fields=["saldo_atual", "atualizado_em"])
+
+        cfg.custo_medio = custo_medio
+        cfg.saldo_atual = saldo_total
+        cfg.save(update_fields=["custo_medio", "saldo_atual", "atualizado_em"])
+
+        messages.success(request, f"Ajuste rápido salvo para {cfg.produto.nome}.")
+        return redirect("estoque:estoque_completo")
 
 
 class ProdutoEstoqueUpdateView(EstoqueManageAccessMixin, UpdateView):
@@ -651,7 +696,13 @@ class ContagemRapidaView(EstoqueManageAccessMixin, TemplateView):
             produto = data.get("produto")
             quantidade_contada = data.get("quantidade_contada")
             if produto is not None and quantidade_contada is not None:
-                itens.append({"produto": produto, "quantidade_contada": quantidade_contada})
+                itens.append(
+                    {
+                        "produto": produto,
+                        "quantidade_contada": quantidade_contada,
+                        "valor_unitario": data.get("valor_unitario"),
+                    }
+                )
         return itens
 
     def get_context_data(self, **kwargs):
