@@ -165,25 +165,67 @@ class EstoqueCompletoView(EstoqueReadOnlyAccessMixin, ListView):
         atualizados = 0
         ignorados = 0
         for row in reader:
-            sku = (row.get("sku") or row.get("SKU") or "").strip()
-            custo_raw = (
+            sku = (
+                row.get("sku")
+                or row.get("SKU")
+                or row.get("Sku")
+                or ""
+            ).strip()
+            if not sku:
+                ignorados += 1
+                continue
+
+            # Compatível com layouts diferentes de planilha (incluindo gestao-estoque.csv).
+            custo_medio_raw = (
                 row.get("custo_medio")
                 or row.get("CUSTO_MEDIO")
+                or row.get("Custo Médio")
+                or row.get("Custo Medio")
                 or row.get("custo")
                 or row.get("CUSTO")
                 or row.get("preco")
                 or row.get("PRECO")
+                or row.get("Valor de Venda")
+                or row.get("valor_venda")
                 or ""
             )
-            custo_raw = str(custo_raw).strip().replace(".", "").replace(",", ".")
-            if not sku or not custo_raw:
+            custo_total_raw = (
+                row.get("Custo Total")
+                or row.get("custo_total")
+                or row.get("CUSTO_TOTAL")
+                or ""
+            )
+            reservado_raw = row.get("Reservado") or row.get("reservado") or ""
+            disponivel_raw = (
+                row.get("Disponível")
+                or row.get("Disponivel")
+                or row.get("disponivel")
+                or ""
+            )
+
+            def _to_dec(raw_val: str) -> Decimal:
+                txt = str(raw_val or "").strip()
+                if txt == "":
+                    return Decimal("0")
+                if "." in txt and "," in txt:
+                    txt = txt.replace(".", "").replace(",", ".")
+                elif "," in txt:
+                    txt = txt.replace(",", ".")
+                try:
+                    return Decimal(txt)
+                except (InvalidOperation, ValueError):
+                    return Decimal("0")
+
+            custo = _to_dec(custo_medio_raw)
+            if custo <= 0:
+                custo_total = _to_dec(custo_total_raw)
+                quantidade = _to_dec(reservado_raw) + _to_dec(disponivel_raw)
+                if custo_total > 0 and quantidade > 0:
+                    custo = (custo_total / quantidade).quantize(Decimal("0.0001"))
+            if custo < 0:
                 ignorados += 1
                 continue
-            try:
-                custo = Decimal(custo_raw)
-            except (InvalidOperation, ValueError):
-                ignorados += 1
-                continue
+
             cfg = ProdutoEstoque.objects.select_related("produto").filter(produto__sku=sku).first()
             if not cfg:
                 produto = Produto.objects.filter(sku=sku).first()
