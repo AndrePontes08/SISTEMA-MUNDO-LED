@@ -9,7 +9,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
 
     # Home/Dashboard bÃ¡sico (inclui login, logout, password reset)
-    path("", include("core.urls")),
+    path("", include("core.urls", namespace="core")),
 
     # Apps do ERP (serÃ£o implementados nos prÃ³ximos passos)
     path("compras/", include("compras.urls")),
