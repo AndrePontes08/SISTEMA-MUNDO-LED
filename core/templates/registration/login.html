@@ -34,25 +34,15 @@
       box-shadow: 0 20px 38px rgba(17, 33, 61, .14);
       padding: 20px;
     }
-    .logo-wrap { text-align: center; margin-bottom: 8px; }
-    .logo-wrap img { width: 100%; max-width: 210px; height: auto; max-height: 100px; object-fit: contain; }
-    .system-name {
-      margin-top: 8px;
-      font-size: 1.02rem;
-      font-weight: 900;
-      letter-spacing: .18em;
-      color: var(--brand-900);
-      text-transform: uppercase;
-      text-shadow: 0 1px 8px rgba(17, 33, 61, .12);
-    }
-    .system-name .accent { color: #1b66d8; }
-    .system-subname {
-      margin-top: 2px;
-      font-size: .66rem;
-      font-weight: 700;
-      letter-spacing: .14em;
-      color: #4b5f84;
-      text-transform: uppercase;
+    .logo-wrap { text-align: center; margin-bottom: 14px; }
+    .logo-wrap img {
+      display: block;
+      width: 100%;
+      max-width: 250px;
+      height: auto;
+      max-height: 130px;
+      margin: 0 auto;
+      object-fit: contain;
     }
     h2 { margin: 10px 0 8px; }
     label { display:block; margin: 12px 0 6px; font-weight: 600; color: #2c3f60; }
@@ -98,8 +88,6 @@
   <div class="wrap">
     <div class="logo-wrap">
       <img src="{% static 'core/img/logo_mundo_led.png' %}" alt="Logo AUTO TECH Enterprise Suite">
-      <div class="system-name">AUTO <span class="accent">TECH</span></div>
-      <div class="system-subname">Enterprise Suite</div>
     </div>
 
     <h2>Entrar</h2>

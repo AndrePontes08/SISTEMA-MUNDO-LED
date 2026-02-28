@@ -9,7 +9,6 @@ from django.contrib.auth.views import LogoutView, PasswordChangeView
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Value
 from django.views.generic import TemplateView, ListView
 from django.http import HttpResponse
-from django.urls import reverse_lazy
 from pathlib import Path
 
 from importadores.services.resultado_diario_service import ResultadoDiarioService
@@ -151,7 +150,7 @@ class DocumentacaoView(LoginRequiredMixin, TemplateView):
 
 class ForcedPasswordChangeView(PasswordChangeView):
     template_name = "registration/password_change_form.html"
-    success_url = reverse_lazy("core:password_change_done")
+    success_url = "/accounts/password_change/done/"
 
     def form_valid(self, form):
         response = super().form_valid(form)

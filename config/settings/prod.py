@@ -28,3 +28,7 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
+
+# Evita erro 500 caso algum arquivo estático não esteja no manifest
+# (ex.: durante janela curta entre deploy e collectstatic).
+WHITENOISE_MANIFEST_STRICT = False

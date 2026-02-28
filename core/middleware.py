@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.shortcuts import redirect
-from django.urls import reverse
 
 
 class ForcePasswordChangeMiddleware:
@@ -17,10 +16,11 @@ class ForcePasswordChangeMiddleware:
         user = getattr(request, "user", None)
         if user and user.is_authenticated:
             if user.groups.filter(name="troca_senha_obrigatoria").exists():
+                password_change_path = "/accounts/password_change/"
                 allowed_paths = {
-                    reverse("core:password_change"),
-                    reverse("core:password_change_done"),
-                    reverse("core:logout"),
+                    password_change_path,
+                    "/accounts/password_change/done/",
+                    "/accounts/logout/",
                 }
                 if not (
                     request.path in allowed_paths
@@ -30,6 +30,6 @@ class ForcePasswordChangeMiddleware:
                     if not request.session.get("senha_forcada_alertada", False):
                         messages.warning(request, "Por segurança, altere sua senha antes de continuar.")
                         request.session["senha_forcada_alertada"] = True
-                    return redirect("core:password_change")
+                    return redirect(password_change_path)
 
         return self.get_response(request)
